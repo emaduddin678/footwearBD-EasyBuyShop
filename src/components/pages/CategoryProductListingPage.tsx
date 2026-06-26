@@ -39,7 +39,7 @@ function getBaseProducts(category: string): PlpProduct[] {
   }
 }
 
-export default function CategoryPLP({ category }: { category: string }) {
+export default function CategoryProductListingPage({ category }: { category: string }) {
   if (!PAGE_META[category]) notFound()
 
   const meta = PAGE_META[category]

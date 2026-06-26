@@ -36,8 +36,8 @@ export function ProductCard({
     s.wishlist.items.some((i) => i.id === product.id),
   )
 
-  const imgUrl = "https://placehold.co/300x300/f5f5f5/cccccc?text=Shoe"
-  const hoverImgUrl = "https://placehold.co/300x300/eeeeee/999999?text=Shoe"
+  const imgUrl = "https://placehold.co/300x300/f5f5f5/1A2B5E?text=%F0%9F%91%9F"
+  const hoverImgUrl = "https://placehold.co/300x300/f5f5f5/1A2B5E?text=%F0%9F%91%9F"
 
   const handleAddToCart = (size?: string) => {
     const sz = size ?? selectedSize ?? "38"

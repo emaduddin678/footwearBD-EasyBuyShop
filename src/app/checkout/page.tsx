@@ -2,11 +2,12 @@ import { AnnouncementBar } from "@/components/storefront/AnnouncementBar"
 import { Header } from "@/components/storefront/Header"
 import { Footer } from "@/components/storefront/Footer"
 import { WhatsAppFloat } from "@/components/storefront/WhatsAppFloat"
-import { CartPage } from "@/components/pages/CartPage"
+import CheckoutPage from "@/components/pages/CheckoutPage"
+import Link from "next/link"
 
 export const metadata = {
-  title: "Your Cart — FootwearBD",
-  description: "Review your cart and proceed to checkout",
+  title: "Checkout — FootwearBD",
+  description: "Complete your order",
 }
 
 export default function Page() {
@@ -14,19 +15,19 @@ export default function Page() {
     <div className="min-h-screen font-sans bg-[#f4f5f9]">
       <AnnouncementBar />
       <Header />
-      <main className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-16 py-10">
+      <main className="max-w-7xl mx-auto px-6 py-10">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-gray-400 mb-6 font-medium">
-          <a href="/" className="hover:text-[#1A2B5E] transition-colors">Home</a>
+          <Link href="/" className="hover:text-[#1A2B5E] transition-colors">Home</Link>
           <span>›</span>
-          <span className="text-gray-600">Cart</span>
+          <Link href="/cart" className="hover:text-[#1A2B5E] transition-colors">Cart</Link>
+          <span>›</span>
+          <span className="text-gray-600">Checkout</span>
         </nav>
 
-        <h1 className="text-[28px] font-extrabold text-[#1A2B5E] mb-8 tracking-tight">
-          Shopping Cart
-        </h1>
+        <h1 className="text-2xl font-bold text-[#1A2B5E] py-6">Checkout</h1>
 
-        <CartPage />
+        <CheckoutPage />
       </main>
       <Footer />
       <WhatsAppFloat />

@@ -1,4 +1,4 @@
-import CategoryPLP from './CategoryPLP'
+import CategoryProductListingPage from '@/components/pages/CategoryProductListingPage'
 
 const VALID_CATEGORIES = ['men', 'women', 'kids', 'newborn', 'sale', 'new-arrivals']
 
@@ -8,5 +8,5 @@ export function generateStaticParams() {
 
 export default async function Page({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params
-  return <CategoryPLP category={category} />
+  return <CategoryProductListingPage category={category} />
 }

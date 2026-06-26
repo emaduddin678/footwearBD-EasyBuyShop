@@ -100,7 +100,7 @@ function CheckoutStepper({ step }: { step: 1 | 2 | 3 }) {
   )
 }
 
-export function CartContent() {
+export function CartPage() {
   const dispatch = useAppDispatch()
   const items = useAppSelector((s) => s.cart.items)
   const wishlistItems = useAppSelector((s) => s.wishlist.items)
@@ -180,7 +180,7 @@ export function CartContent() {
       )
       setCouponError("")
     } else {
-      setCouponError("Invalid coupon code. Please try again.")
+      setCouponError("Invalid promo code. Try EID20")
       setCouponSuccess("")
       setAppliedPromo(null)
     }
@@ -195,8 +195,8 @@ export function CartContent() {
   const freeShip = appliedPromo?.type === "freeship"
   const deliveryFee = afterDiscount >= FREE_DELIVERY_THRESHOLD || freeShip ? 0 : DELIVERY_FEE
   const total = afterDiscount + deliveryFee
-  const deliveryPct = Math.min((afterDiscount / FREE_DELIVERY_THRESHOLD) * 100, 100)
-  const remaining = Math.max(FREE_DELIVERY_THRESHOLD - afterDiscount, 0)
+  const deliveryPct = Math.min((subtotal / FREE_DELIVERY_THRESHOLD) * 100, 100)
+  const remaining = Math.max(FREE_DELIVERY_THRESHOLD - subtotal, 0)
 
   /* ── Toast overlay ── */
   const ToastStack = (
@@ -252,7 +252,7 @@ export function CartContent() {
             Your cart is empty
           </h2>
           <p className="text-gray-400 text-sm mb-8 max-w-xs leading-relaxed">
-            Start exploring our collection!
+            Looks like you haven&apos;t added anything yet.
           </p>
           <div className="flex gap-3 mb-6">
             <Link
@@ -311,7 +311,7 @@ export function CartContent() {
                   {/* Product image */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://placehold.co/96x96/f5f5f5/cccccc?text=👟"
+                    src="https://placehold.co/96x96/f5f5f5/1A2B5E?text=%F0%9F%91%9F"
                     alt={item.name}
                     width={88}
                     height={88}
