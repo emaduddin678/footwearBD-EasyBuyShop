@@ -20,7 +20,7 @@ const footerLinks = {
     { label: "bKash & Nagad Pay", href: "/payment" },
   ],
   "Customer Service": [
-    { label: "My Account", href: "/account" },
+    { label: "My Account", href: "/account/login" },
     { label: "My Orders", href: "/account/orders" },
     { label: "Wishlist", href: "/wishlist" },
     { label: "FAQ", href: "/faq" },

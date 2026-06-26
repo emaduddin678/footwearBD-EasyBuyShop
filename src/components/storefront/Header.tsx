@@ -99,7 +99,7 @@ export function Header() {
           </Link>
 
           {/* Account */}
-          <Link href="/account" className="flex flex-col items-center gap-0.5 text-gray-700 hover:text-brand-navy transition-colors">
+          <Link href="/account/login" className="flex flex-col items-center gap-0.5 text-gray-700 hover:text-brand-navy transition-colors">
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />

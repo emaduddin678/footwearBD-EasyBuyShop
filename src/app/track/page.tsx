@@ -1,11 +1,13 @@
-﻿import { Header } from "@/components/storefront/Header"
+import { Suspense } from "react"
+import { Header } from "@/components/storefront/Header"
 import { AnnouncementBar } from "@/components/storefront/AnnouncementBar"
 import { Footer } from "@/components/storefront/Footer"
 import { WhatsAppFloat } from "@/components/storefront/WhatsAppFloat"
+import OrderTrackingPage from "@/components/pages/OrderTrackingPage"
 
 export const metadata = {
-  title: "Order Tracking — FootwearBD",
-  description: "Track your order",
+  title: "Track Your Order — FootwearBD",
+  description: "Track your order status and get real-time delivery updates.",
 }
 
 export default function Page() {
@@ -13,10 +15,9 @@ export default function Page() {
     <div className="min-h-screen font-sans bg-[#f4f5f9]">
       <AnnouncementBar />
       <Header />
-      <main className="max-w-[1440px] mx-auto px-16 py-20 text-center">
-        <h1 className="text-[42px] font-extrabold text-brand-navy mb-4">Order Tracking</h1>
-        <p className="text-lg text-gray-500">This page is coming soon. Design is on the way!</p>
-      </main>
+      <Suspense fallback={<div className="py-24 text-center text-gray-400 text-sm">Loading...</div>}>
+        <OrderTrackingPage />
+      </Suspense>
       <Footer />
       <WhatsAppFloat />
     </div>

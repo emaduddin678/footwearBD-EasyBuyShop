@@ -36,8 +36,8 @@ export function ProductCard({
     s.wishlist.items.some((i) => i.id === product.id),
   )
 
-  const imgUrl = "https://placehold.co/300x300/f5f5f5/1A2B5E?text=%F0%9F%91%9F"
-  const hoverImgUrl = "https://placehold.co/300x300/f5f5f5/1A2B5E?text=%F0%9F%91%9F"
+  const imgUrl = "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
+  const hoverImgUrl = "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
 
   const handleAddToCart = (size?: string) => {
     const sz = size ?? selectedSize ?? "38"
@@ -66,7 +66,20 @@ export function ProductCard({
       toggleWishlist({
         id: product.id,
         name: product.name,
-        price: product.price,
+        brand: ("brand" in product ? (product as { brand: string }).brand : "") as string,
+        category: ("category" in product ? (product as { category: string }).category : product.cat) as string,
+        gender: ("gender" in product ? (product as { gender: string }).gender : "") as string,
+        price: ("priceNum" in product ? (product as { priceNum: number }).priceNum : parseInt(product.price.replace(/[৳,\s]/g, ""), 10)) as number,
+        originalPrice: ("originalPriceNum" in product && (product as { originalPriceNum: number | null }).originalPriceNum != null
+          ? (product as { originalPriceNum: number }).originalPriceNum
+          : parseInt(product.price.replace(/[৳,\s]/g, ""), 10)) as number,
+        image: "",
+        sizes: ("sizes" in product ? (product as { sizes: number[] }).sizes : []) as number[],
+        unavailableSizes: ("unavailableSizes" in product ? (product as { unavailableSizes: number[] }).unavailableSizes : []) as number[],
+        rating: product.rating,
+        reviewCount: product.reviews,
+        badge: product.badge,
+        addedAt: new Date().toISOString(),
         imgBg: product.imgBg,
         imgFg: product.imgFg,
         imgText: product.imgText,
