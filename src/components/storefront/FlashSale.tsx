@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ProductCard } from "./ProductCard"
-import { flashSaleProducts } from "@/lib/data/products"
+import type { Product } from "@/lib/data/products"
 
 const SALE_DURATION_S = 4 * 3600 + 47 * 60 + 23
 
@@ -26,7 +26,13 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
   )
 }
 
-export function FlashSale() {
+// ── Client component — receives pre-fetched products as a prop ────────────────
+
+interface FlashSaleProps {
+  products: Product[]
+}
+
+export function FlashSale({ products }: FlashSaleProps) {
   const [endTime] = useState(() => Date.now() + SALE_DURATION_S * 1000)
   const [timeLeft, setTimeLeft] = useState({ h: 4, m: 47, s: 23 })
 
@@ -69,9 +75,9 @@ export function FlashSale() {
 
         {/* Products */}
         <div className="grid grid-cols-4 gap-[22px]">
-          {flashSaleProducts.map((product) => (
+          {products.map((product, i) => (
             <ProductCard
-              key={product.id}
+              key={product.id ?? i}
               product={product}
               priceColor="red"
               ctaLabel="Grab Deal"

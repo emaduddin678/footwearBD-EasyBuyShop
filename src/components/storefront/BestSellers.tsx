@@ -1,8 +1,53 @@
 import Link from "next/link"
 import { ProductCard } from "./ProductCard"
+import { fetchFeaturedProducts, normalizeProduct } from "@/lib/api/products"
 import { bestSellers } from "@/lib/data/products"
 
-export function BestSellers() {
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+export function BestSellersSkeleton() {
+  return (
+    <section className="bg-[#f4f5f9] py-20">
+      <div className="max-w-[1440px] mx-auto px-16">
+        <div className="flex items-end justify-between mb-11">
+          <div>
+            <div className="h-6 w-24 bg-gray-200 rounded-full mb-2.5 animate-pulse" />
+            <div className="h-9 w-48 bg-gray-200 rounded animate-pulse" />
+          </div>
+          <div className="h-10 w-28 bg-gray-200 rounded-[9px] animate-pulse" />
+        </div>
+        <div className="grid grid-cols-4 gap-[22px]">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-[14px] overflow-hidden shadow-sm">
+              <div className="h-60 bg-gray-200 animate-pulse" />
+              <div className="p-4 space-y-3">
+                <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
+                <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="h-10 bg-gray-200 rounded-lg animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export async function BestSellers() {
+  let products = bestSellers
+
+  try {
+    const apiProducts = await fetchFeaturedProducts(8)
+    if (apiProducts.length > 0) {
+      products = apiProducts.map((p, i) => normalizeProduct(p, i))
+    }
+  } catch {
+    // silently fall back to mock data when backend is unavailable
+  }
+
   return (
     <section className="bg-[#f4f5f9] py-20">
       <div className="max-w-[1440px] mx-auto px-16">
@@ -27,8 +72,8 @@ export function BestSellers() {
 
         {/* Grid */}
         <div className="grid grid-cols-4 gap-[22px]">
-          {bestSellers.map((product) => (
-            <ProductCard key={product.id} product={product} />
+          {products.map((product, i) => (
+            <ProductCard key={product.id ?? i} product={product} />
           ))}
         </div>
       </div>

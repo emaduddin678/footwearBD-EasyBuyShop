@@ -1,5 +1,7 @@
 export interface Product {
   id: number
+  /** MongoDB _id from the backend — used as the PDP route when present */
+  _id?: string
   name: string
   cat: string
   price: string
@@ -11,6 +13,8 @@ export interface Product {
   imgBg: string
   imgFg: string
   imgText: string
+  /** Cloudinary URL when product has a real image */
+  primaryImage?: string
 }
 
 export const bestSellers: Product[] = [

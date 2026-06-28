@@ -36,8 +36,9 @@ export function ProductCard({
     s.wishlist.items.some((i) => i.id === product.id),
   )
 
-  const imgUrl = "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
-  const hoverImgUrl = "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
+  const imgUrl = product.primaryImage || "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
+  const hoverImgUrl = product.primaryImage || "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
+  const productHref = `/product/${product._id ?? product.id}`
 
   const handleAddToCart = (size?: string) => {
     const sz = size ?? selectedSize ?? "38"
@@ -90,7 +91,7 @@ export function ProductCard({
   return (
     <div className="group bg-white rounded-[14px] overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_48px_rgba(26,43,94,0.2)] hover:-translate-y-2 transition-all duration-300">
       {/* ── Image (links to PDP) ── */}
-      <Link href={`/product/${product.id}`} className="block relative overflow-hidden bg-gray-50">
+      <Link href={productHref} className="block relative overflow-hidden bg-gray-50">
         <img
           src={imgUrl}
           alt={product.name}
@@ -182,7 +183,7 @@ export function ProductCard({
       {/* ── Card body ── */}
       <div className="p-4 pb-[18px]">
         {/* Name + category link to PDP */}
-        <Link href={`/product/${product.id}`} className="block group/name mb-2.5">
+        <Link href={productHref} className="block group/name mb-2.5">
           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
             {product.cat}
           </div>

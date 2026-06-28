@@ -1,12 +1,13 @@
+import { Suspense } from "react"
 import { AnnouncementBar } from "@/components/storefront/AnnouncementBar"
 import { Header } from "@/components/storefront/Header"
 import { HeroBanner } from "@/components/storefront/HeroBanner"
 import { CategorySection } from "@/components/storefront/CategorySection"
 import { TrustBar } from "@/components/storefront/TrustBar"
-import { BestSellers } from "@/components/storefront/BestSellers"
+import { BestSellers, BestSellersSkeleton } from "@/components/storefront/BestSellers"
 import { PromoBanner } from "@/components/storefront/PromoBanner"
-import { NewArrivals } from "@/components/storefront/NewArrivals"
-import { FlashSale } from "@/components/storefront/FlashSale"
+import { NewArrivals, NewArrivalsSkeleton } from "@/components/storefront/NewArrivals"
+import { FlashSaleServer, FlashSaleSkeleton } from "@/components/storefront/FlashSaleServer"
 import { BrandStrip } from "@/components/storefront/BrandStrip"
 import { RecentlyViewed } from "@/components/storefront/RecentlyViewed"
 import { Footer } from "@/components/storefront/Footer"
@@ -15,16 +16,22 @@ import { WhatsAppFloat } from "@/components/storefront/WhatsAppFloat"
 const HomePage = () => {
   return (
     <>
-   <AnnouncementBar />
+      <AnnouncementBar />
       <Header />
       <main>
         <HeroBanner />
         <CategorySection />
         <TrustBar />
-        <BestSellers />
+        <Suspense fallback={<BestSellersSkeleton />}>
+          <BestSellers />
+        </Suspense>
         <PromoBanner />
-        <NewArrivals />
-        <FlashSale />
+        <Suspense fallback={<NewArrivalsSkeleton />}>
+          <NewArrivals />
+        </Suspense>
+        <Suspense fallback={<FlashSaleSkeleton />}>
+          <FlashSaleServer />
+        </Suspense>
         <BrandStrip />
         <RecentlyViewed />
       </main>

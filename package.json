@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fresh": "rimraf .next && next dev"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
