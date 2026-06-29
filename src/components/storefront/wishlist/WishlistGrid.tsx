@@ -16,7 +16,7 @@ interface Props {
 
 export function WishlistGrid({ items, onToast, onAddedToCart }: Props) {
   const dispatch = useAppDispatch()
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [sortBy, setSortBy] = useState<SortOption>("recently-added")
 
   const allSelected = items.length > 0 && items.every((i) => selectedIds.has(i.id))
@@ -29,7 +29,7 @@ export function WishlistGrid({ items, onToast, onAddedToCart }: Props) {
     }
   }
 
-  function toggleSelect(id: number) {
+  function toggleSelect(id: string | number) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)

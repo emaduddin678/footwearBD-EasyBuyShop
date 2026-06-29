@@ -6,11 +6,8 @@ import Link from "next/link"
 import { AuthLayout } from "@/components/storefront/auth/AuthLayout"
 import { PasswordInput } from "@/components/storefront/auth/PasswordInput"
 import { SocialLogin } from "@/components/storefront/auth/SocialLogin"
-
-const VALID_CREDENTIALS = [
-  { identifier: "rahim@example.com", password: "password123", name: "Rahim" },
-  { identifier: "+8801712345678", password: "password123", name: "Rahim" },
-]
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { loginUser } from "@/lib/store/authSlice"
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -28,10 +25,12 @@ type ForgotStep = "idle" | "email" | "otp" | "newpass"
 
 export default function LoginPage() {
   const router = useRouter()
+  const dispatch = useAppDispatch()
+  const authStatus = useAppSelector((s) => s.auth.status)
+
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [shake, setShake] = useState(false)
   const [toast, setToast] = useState("")
@@ -43,27 +42,26 @@ export default function LoginPage() {
   const [confirmPass, setConfirmPass] = useState("")
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
 
+  const loading = authStatus === "loading"
+
   const showToast = (msg: string) => setToast(msg)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 800))
 
-    const match = VALID_CREDENTIALS.find(
-      (c) => c.identifier === identifier && c.password === password
-    )
+    const result = await dispatch(loginUser({ email: identifier, password }))
 
-    if (match) {
-      showToast(`✓ Welcome back, ${match.name}!`)
+    if (loginUser.fulfilled.match(result)) {
+      const user = result.payload
+      showToast(`✓ Welcome back, ${user.firstName}!`)
       setTimeout(() => router.push("/account"), 1000)
     } else {
-      setError("❌ Invalid phone/email or password. Please try again.")
+      const msg = (result.payload as string) || "Invalid email or password. Please try again."
+      setError(`❌ ${msg}`)
       setShake(true)
       setTimeout(() => setShake(false), 600)
     }
-    setLoading(false)
   }
 
   const handleOtpChange = (index: number, value: string) => {
@@ -109,14 +107,14 @@ export default function LoginPage() {
           {/* Identifier */}
           <div>
             <label htmlFor="identifier" className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Phone Number or Email
+              Email Address
             </label>
             <input
               id="identifier"
-              type="text"
+              type="email"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="+880 1XXX-XXXXXX or email@example.com"
+              placeholder="email@example.com"
               autoComplete="username"
               required
               className="w-full h-[46px] border border-gray-200 rounded-xl px-4 text-sm text-gray-800 bg-gray-50 outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] focus:bg-white transition-all"
@@ -194,13 +192,13 @@ export default function LoginPage() {
               <>
                 <h3 className="font-semibold text-[#1A2B5E]">Reset Your Password</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Enter your phone number or email and we&apos;ll send you a reset code
+                  Enter your email and we&apos;ll send you a reset code
                 </p>
                 <input
-                  type="text"
+                  type="email"
                   value={forgotIdentifier}
                   onChange={(e) => setForgotIdentifier(e.target.value)}
-                  placeholder="Phone or email"
+                  placeholder="email@example.com"
                   className="w-full mt-3 h-[44px] border border-gray-200 rounded-xl px-4 text-sm bg-white outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] transition-all"
                 />
                 <button
@@ -223,7 +221,7 @@ export default function LoginPage() {
 
             {forgotStep === "otp" && (
               <>
-                <p className="text-sm text-gray-500">Enter the 6-digit code sent to your phone</p>
+                <p className="text-sm text-gray-500">Enter the 6-digit code sent to your email</p>
                 <div className="flex gap-2 mt-3">
                   {otp.map((digit, i) => (
                     <input
@@ -251,7 +249,7 @@ export default function LoginPage() {
                   onClick={() => setForgotStep("email")}
                   className="w-full mt-2 text-sm text-gray-500 hover:text-gray-700"
                 >
-                  ← Back to Sign In
+                  ← Back
                 </button>
               </>
             )}

@@ -96,10 +96,18 @@ function Toast({
   )
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002"
+
 export function ProductInfo({ product }: { product: PlpProduct }) {
   const dispatch = useAppDispatch()
   const router = useRouter()
   const sizeRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (product._id) {
+      fetch(`${API_URL}/api/products/${product._id}/view`, { method: "PATCH" }).catch(() => {})
+    }
+  }, [product._id])
 
   const [selectedSize, setSelectedSize] = useState<number | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>(product.color)

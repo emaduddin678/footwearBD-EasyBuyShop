@@ -32,8 +32,9 @@ export function ProductCard({
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [added, setAdded] = useState(false)
 
+  const wishlistKey = product._id ?? product.id
   const isWishlisted = useAppSelector((s) =>
-    s.wishlist.items.some((i) => i.id === product.id),
+    s.wishlist.items.some((i) => String(i.id) === String(wishlistKey)),
   )
 
   const imgUrl = product.primaryImage || "https://placehold.co/300x300/f5f5f5/cccccc?text=👟"
@@ -65,7 +66,7 @@ export function ProductCard({
     e.stopPropagation()
     dispatch(
       toggleWishlist({
-        id: product.id,
+        id: wishlistKey,
         name: product.name,
         brand: ("brand" in product ? (product as { brand: string }).brand : "") as string,
         category: ("category" in product ? (product as { category: string }).category : product.cat) as string,

@@ -14,7 +14,7 @@ import { SortBar } from "@/components/storefront/plp/SortBar"
 import { ActiveFilterTags } from "@/components/storefront/plp/ActiveFilterTags"
 import { Pagination } from "@/components/storefront/plp/Pagination"
 import { QuickViewModal } from "@/components/storefront/plp/QuickViewModal"
-import { allPlpProducts, type PlpProduct } from "@/lib/data/products"
+import type { PlpProduct } from "@/lib/data/products"
 
 const ITEMS_PER_PAGE = 12
 
@@ -27,25 +27,19 @@ const PAGE_META: Record<string, { title: string; crumb: string }> = {
   'new-arrivals': { title: "New Arrivals", crumb: "New Arrivals" },
 }
 
-function getBaseProducts(category: string): PlpProduct[] {
-  switch (category) {
-    case 'men': return allPlpProducts.filter(p => p.gender === 'men' || p.gender === 'unisex')
-    case 'women': return allPlpProducts.filter(p => p.gender === 'women' || p.gender === 'unisex')
-    case 'kids': return allPlpProducts.filter(p => p.gender === 'kids')
-    case 'newborn': return allPlpProducts.filter(p => p.gender === 'newborn')
-    case 'sale': return allPlpProducts.filter(p => p.originalPriceNum !== null || (p.badge ?? '').includes('SALE'))
-    case 'new-arrivals': return allPlpProducts.filter(p => p.isNew)
-    default: return []
-  }
-}
-
-export default function CategoryProductListingPage({ category }: { category: string }) {
+export default function CategoryProductListingPage({
+  category,
+  initialProducts,
+}: {
+  category: string
+  initialProducts: PlpProduct[]
+}) {
   if (!PAGE_META[category]) notFound()
 
   const meta = PAGE_META[category]
 
-  // Base product pool for this category — constant for the lifetime of this page instance
-  const baseProducts = useMemo(() => getBaseProducts(category), [category])
+  // Base product pool — server-fetched and passed in as a prop
+  const baseProducts = initialProducts
 
   // Derived filter options from base pool
   const availableCategories = useMemo(() =>

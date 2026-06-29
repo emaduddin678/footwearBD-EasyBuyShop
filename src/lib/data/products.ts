@@ -15,6 +15,8 @@ export interface Product {
   imgText: string
   /** Cloudinary URL when product has a real image */
   primaryImage?: string
+  /** Additional Cloudinary image URLs for the gallery */
+  additionalImages?: string[]
 }
 
 export const bestSellers: Product[] = [
@@ -49,13 +51,13 @@ export const flashSaleProducts: Product[] = [
 // ── Universal PLP product type (extends Product for ProductCard compat) ──
 
 export interface PlpProduct extends Product {
-  brand: 'Bata' | 'Hush Puppies' | 'North Star' | 'Bay' | 'Power'
+  brand: string
   category: string
   gender: 'men' | 'women' | 'kids' | 'newborn' | 'unisex'
   priceNum: number
   originalPriceNum: number | null
   sizes: number[]
-  color: 'Black' | 'White' | 'Brown' | 'Navy' | 'Red' | 'Tan' | 'Grey' | 'Pink' | 'Purple'
+  color: string
   sales: number
   isNew: boolean
   inStock: boolean

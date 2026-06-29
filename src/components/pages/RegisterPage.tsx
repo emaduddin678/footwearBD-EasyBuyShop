@@ -6,8 +6,8 @@ import Link from "next/link"
 import { AuthLayout } from "@/components/storefront/auth/AuthLayout"
 import { PasswordInput } from "@/components/storefront/auth/PasswordInput"
 import { SocialLogin } from "@/components/storefront/auth/SocialLogin"
-
-const BD_PHONE_REGEX = /^(\+8801|8801|01)[3-9]\d{8}$/
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { registerUser } from "@/lib/store/authSlice"
 
 function getStrength(pwd: string): { label: string; color: string; width: string } | null {
   if (pwd.length === 0) return null
@@ -31,14 +31,18 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
 interface FieldErrors {
   firstName?: string
   lastName?: string
-  phone?: string
+  email?: string
   password?: string
   confirmPassword?: string
   terms?: string
+  server?: string
 }
 
 export default function RegisterPage() {
   const router = useRouter()
+  const dispatch = useAppDispatch()
+  const authStatus = useAppSelector((s) => s.auth.status)
+
   const [toast, setToast] = useState("")
   const showToast = (msg: string) => setToast(msg)
 
@@ -53,9 +57,11 @@ export default function RegisterPage() {
   const [referralValid, setReferralValid] = useState<boolean | null>(null)
   const [terms, setTerms] = useState(false)
   const [newsletter, setNewsletter] = useState(true)
-  const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [success, setSuccess] = useState(false)
+  const [activationEmail, setActivationEmail] = useState("")
+
+  const loading = authStatus === "loading"
 
   const passwordMatch = confirmPassword.length > 0 && password === confirmPassword
   const strength = getStrength(password)
@@ -71,9 +77,9 @@ export default function RegisterPage() {
     const errs: FieldErrors = {}
     if (firstName.trim().length < 2) errs.firstName = "Min 2 characters"
     if (lastName.trim().length < 2) errs.lastName = "Min 2 characters"
-    if (!BD_PHONE_REGEX.test(phone.replace(/\s|-/g, "")))
-      errs.phone = "Enter a valid Bangladesh phone number"
-    if (password.length < 6) errs.password = "Min 6 characters"
+    if (!email || !/^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/.test(email))
+      errs.email = "A valid email address is required"
+    if (password.length < 8) errs.password = "Min 8 characters"
     if (password !== confirmPassword) errs.confirmPassword = "Passwords don't match"
     if (!terms) errs.terms = "You must accept the terms"
     setErrors(errs)
@@ -87,10 +93,24 @@ export default function RegisterPage() {
       firstErr?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
     }
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 1000))
-    setLoading(false)
-    setSuccess(true)
+
+    const result = await dispatch(
+      registerUser({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.toLowerCase().trim(),
+        password,
+        phoneNumber: phone.trim() || undefined,
+      }),
+    )
+
+    if (registerUser.fulfilled.match(result)) {
+      setActivationEmail(email.toLowerCase().trim())
+      setSuccess(true)
+    } else {
+      const msg = (result.payload as string) || "Registration failed. Please try again."
+      setErrors((prev) => ({ ...prev, server: msg }))
+    }
   }
 
   if (success) {
@@ -119,30 +139,29 @@ export default function RegisterPage() {
               </svg>
             </div>
 
-            <h2 className="text-2xl font-bold text-[#1A2B5E]">🎉 Account Created!</h2>
+            <h2 className="text-2xl font-bold text-[#1A2B5E]">Almost There! 🎉</h2>
             <p className="text-gray-600 mt-2">Welcome to FootwearBD, {firstName}!</p>
-            <p className="text-[#D4A017] font-semibold mt-1">You&apos;ve earned 150 points for joining!</p>
-
-            <div className="bg-gray-50 rounded-xl p-4 mt-6 text-left max-w-xs mx-auto">
-              <p className="text-xs font-semibold text-gray-500 mb-2">Your account details:</p>
-              <p className="text-sm text-gray-800 font-medium">Phone: {phone}</p>
-              <p className="text-xs text-gray-400 mt-1">Please save these for login</p>
-            </div>
+            <p className="text-sm text-gray-500 mt-3 max-w-xs mx-auto">
+              We&apos;ve sent an activation link to{" "}
+              <span className="font-semibold text-[#1A2B5E]">{activationEmail}</span>.
+              Click the link in the email to activate your account.
+            </p>
+            <p className="text-xs text-gray-400 mt-2">Check your spam folder if you don&apos;t see it.</p>
 
             <div className="flex flex-col gap-3 mt-6">
               <button
                 type="button"
-                onClick={() => router.push("/men")}
+                onClick={() => router.push("/account/login")}
                 className="bg-[#1A2B5E] text-white font-semibold py-3 rounded-xl hover:bg-[#0d1733] transition-all"
               >
-                Start Shopping →
+                Go to Sign In →
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/account")}
+                onClick={() => router.push("/")}
                 className="border-2 border-[#D4A017] text-[#D4A017] font-semibold py-3 rounded-xl hover:bg-[#D4A017]/10 transition-all"
               >
-                Go to My Account →
+                Continue Browsing →
               </button>
             </div>
           </div>
@@ -258,33 +277,10 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Phone */}
+          {/* Email (required — used for activation) */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Phone Number <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+880 1XXX-XXXXXX"
-              autoComplete="tel"
-              data-field-error={errors.phone ? true : undefined}
-              className={`w-full h-[46px] border rounded-xl px-4 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] focus:bg-white transition-all ${
-                errors.phone ? "border-red-400 bg-red-50" : "border-gray-200"
-              }`}
-            />
-            {errors.phone ? (
-              <p className="text-xs text-red-500 mt-1">{errors.phone}</p>
-            ) : (
-              <p className="text-xs text-gray-400 mt-1">Used for order updates and login</p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Email Address <span className="text-gray-400 font-normal">(optional)</span>
+              Email Address <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -292,9 +288,32 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
               autoComplete="email"
+              data-field-error={errors.email ? true : undefined}
+              className={`w-full h-[46px] border rounded-xl px-4 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] focus:bg-white transition-all ${
+                errors.email ? "border-red-400 bg-red-50" : "border-gray-200"
+              }`}
+            />
+            {errors.email ? (
+              <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">We&apos;ll send your activation link here</p>
+            )}
+          </div>
+
+          {/* Phone (optional) */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Phone Number <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+880 1XXX-XXXXXX"
+              autoComplete="tel"
               className="w-full h-[46px] border border-gray-200 rounded-xl px-4 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] focus:bg-white transition-all"
             />
-            <p className="text-xs text-gray-400 mt-1">Optional but recommended for order confirmation</p>
+            <p className="text-xs text-gray-400 mt-1">For order updates (optional)</p>
           </div>
 
           {/* Password + strength */}
@@ -429,7 +448,14 @@ export default function RegisterPage() {
             </span>
           </label>
 
-          {/* Submit — disabled only when terms not checked */}
+          {/* Server error */}
+          {errors.server && (
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
+              ❌ {errors.server}
+            </div>
+          )}
+
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading || !terms}

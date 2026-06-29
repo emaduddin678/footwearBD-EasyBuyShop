@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 
 export interface CartItem {
-  id: number
+  id: string | number
   name: string
   price: string
   size: string
@@ -23,7 +23,7 @@ const cartSlice = createSlice({
   reducers: {
     addToCart(state, action: PayloadAction<Omit<CartItem, "quantity">>) {
       const existing = state.items.find(
-        (i) => i.id === action.payload.id && i.size === action.payload.size
+        (i) => String(i.id) === String(action.payload.id) && i.size === action.payload.size
       )
       if (existing) {
         existing.quantity += 1
@@ -31,27 +31,27 @@ const cartSlice = createSlice({
         state.items.push({ ...action.payload, quantity: 1 })
       }
     },
-    removeFromCart(state, action: PayloadAction<{ id: number; size: string }>) {
+    removeFromCart(state, action: PayloadAction<{ id: string | number; size: string }>) {
       state.items = state.items.filter(
-        (i) => !(i.id === action.payload.id && i.size === action.payload.size)
+        (i) => !(String(i.id) === String(action.payload.id) && i.size === action.payload.size)
       )
     },
-    incrementQuantity(state, action: PayloadAction<{ id: number; size: string }>) {
+    incrementQuantity(state, action: PayloadAction<{ id: string | number; size: string }>) {
       const item = state.items.find(
-        (i) => i.id === action.payload.id && i.size === action.payload.size
+        (i) => String(i.id) === String(action.payload.id) && i.size === action.payload.size
       )
       if (item) item.quantity += 1
     },
-    decrementQuantity(state, action: PayloadAction<{ id: number; size: string }>) {
+    decrementQuantity(state, action: PayloadAction<{ id: string | number; size: string }>) {
       const item = state.items.find(
-        (i) => i.id === action.payload.id && i.size === action.payload.size
+        (i) => String(i.id) === String(action.payload.id) && i.size === action.payload.size
       )
       if (item) {
         if (item.quantity > 1) {
           item.quantity -= 1
         } else {
           state.items = state.items.filter(
-            (i) => !(i.id === action.payload.id && i.size === action.payload.size)
+            (i) => !(String(i.id) === String(action.payload.id) && i.size === action.payload.size)
           )
         }
       }

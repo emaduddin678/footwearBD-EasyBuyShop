@@ -1,8 +1,10 @@
 "use client"
 
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useAppSelector } from "@/lib/store/hooks"
+import { useRouter, usePathname } from "next/navigation"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { logoutUser } from "@/lib/store/authSlice"
 import { cn } from "@/lib/utils"
 
 const navLinks = [
@@ -14,6 +16,102 @@ const navLinks = [
   { label: "New Arrivals", href: "/new-arrivals" },
   { label: "Brands", href: "/brands" },
 ]
+
+function AccountMenu() {
+  const dispatch = useAppDispatch()
+  const router = useRouter()
+  const user = useAppSelector((s) => s.auth.user)
+  const sessionChecked = useAppSelector((s) => s.auth.sessionChecked)
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleLogout = async () => {
+    setOpen(false)
+    await dispatch(logoutUser())
+    router.push("/")
+  }
+
+  if (!sessionChecked) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 text-gray-400">
+        <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse" />
+        <span className="text-[10px] font-bold tracking-[0.3px]">Account</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <Link
+        href="/account/login"
+        className="flex flex-col items-center gap-0.5 text-gray-700 hover:text-brand-navy transition-colors"
+      >
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+        <span className="text-[10px] font-bold tracking-[0.3px]">Account</span>
+      </Link>
+    )
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex flex-col items-center gap-0.5 text-brand-navy hover:text-brand-gold transition-colors"
+      >
+        <div className="w-6 h-6 rounded-full bg-brand-navy text-white flex items-center justify-center text-[11px] font-bold">
+          {user.firstName[0].toUpperCase()}
+        </div>
+        <span className="text-[10px] font-bold tracking-[0.3px] max-w-[60px] truncate">
+          {user.firstName}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-50">
+          <div className="px-4 py-2 border-b border-gray-100">
+            <p className="text-sm font-semibold text-gray-900">{user.firstName} {user.lastName}</p>
+            <p className="text-xs text-gray-400 truncate">{user.email}</p>
+          </div>
+          <Link
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-brand-navy transition-colors"
+          >
+            My Account
+          </Link>
+          <Link
+            href="/wishlist"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-brand-navy transition-colors"
+          >
+            My Wishlist
+          </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100 mt-1"
+          >
+            Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Header() {
   const pathname = usePathname()
@@ -98,14 +196,8 @@ export function Header() {
             <span className="text-[10px] font-bold tracking-[0.3px]">Cart</span>
           </Link>
 
-          {/* Account */}
-          <Link href="/account/login" className="flex flex-col items-center gap-0.5 text-gray-700 hover:text-brand-navy transition-colors">
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span className="text-[10px] font-bold tracking-[0.3px]">Account</span>
-          </Link>
+          {/* Account (smart — shows user menu when logged in) */}
+          <AccountMenu />
         </div>
       </div>
 

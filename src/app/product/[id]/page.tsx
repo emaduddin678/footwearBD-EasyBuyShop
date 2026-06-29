@@ -1,5 +1,9 @@
 import Link from "next/link"
-import { allPlpProducts } from "@/lib/data/products"
+import {
+  fetchProductById,
+  fetchRelatedProducts,
+  normalizePlpProduct,
+} from "@/lib/api/products"
 import { AnnouncementBar } from "@/components/storefront/AnnouncementBar"
 import { Header } from "@/components/storefront/Header"
 import { Footer } from "@/components/storefront/Footer"
@@ -11,7 +15,31 @@ import { RelatedProducts } from "@/components/storefront/pdp/RelatedProducts"
 import { RecentlyViewedPDP } from "@/components/storefront/pdp/RecentlyViewedPDP"
 
 export async function generateStaticParams() {
-  return allPlpProducts.map((p) => ({ id: String(p.id) }))
+  try {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002"
+    const res = await fetch(`${BASE_URL}/api/products?status=active&limit=100`, {
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.payload?.items ?? []).map((p: { _id: string }) => ({ id: p._id }))
+  } catch {
+    return []
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const product = await fetchProductById(id)
+  if (!product) return { title: "Product Not Found | FootwearBD" }
+  return {
+    title: `${product.title}${product.brand ? ` — ${product.brand}` : ""} | FootwearBD`,
+    description: product.shortDescription?.slice(0, 155) || undefined,
+  }
 }
 
 export default async function ProductPage({
@@ -20,9 +48,9 @@ export default async function ProductPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const product = allPlpProducts.find((p) => p.id === Number(id)) ?? null
+  const backendProduct = await fetchProductById(id)
 
-  if (!product) {
+  if (!backendProduct) {
     return (
       <div className="min-h-screen font-sans bg-[#f4f5f9] flex flex-col">
         <AnnouncementBar />
@@ -46,13 +74,12 @@ export default async function ProductPage({
     )
   }
 
-  const relatedProducts = allPlpProducts
-    .filter(
-      (p) =>
-        p.id !== product.id &&
-        (p.category === product.category || p.brand === product.brand),
-    )
-    .slice(0, 4)
+  const product = normalizePlpProduct(backendProduct, 0)
+
+  const relatedBackend = backendProduct.mainCategory?._id
+    ? await fetchRelatedProducts(backendProduct.mainCategory._id, backendProduct._id)
+    : []
+  const relatedProducts = relatedBackend.map((p, i) => normalizePlpProduct(p, i))
 
   const genderLabel =
     { men: "Men", women: "Women", kids: "Kids", newborn: "Newborn", unisex: "All" }[

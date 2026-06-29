@@ -10,7 +10,7 @@ import { addToCart } from "@/lib/store/cartSlice"
 interface Props {
   item: WishlistItemType
   isSelected: boolean
-  onToggleSelect: (id: number) => void
+  onToggleSelect: (id: string | number) => void
   showCheckbox: boolean
   onToast: (msg: string, undoFn?: () => void) => void
   onAddedToCart: (name: string) => void

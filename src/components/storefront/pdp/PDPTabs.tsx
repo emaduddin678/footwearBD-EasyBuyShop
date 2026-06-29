@@ -134,7 +134,11 @@ export function PDPTabs({ product }: { product: PlpProduct }) {
         {/* Reviews tab */}
         {activeTab === "reviews" && (
           <div className="animate-in fade-in duration-200">
-            <ReviewSection rating={product.rating} reviewCount={product.reviews} />
+            <ReviewSection
+              productId={product._id!}
+              rating={product.rating}
+              reviewCount={product.reviews}
+            />
           </div>
         )}
       </div>
