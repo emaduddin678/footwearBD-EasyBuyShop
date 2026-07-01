@@ -15,7 +15,7 @@ export interface ServerWishlistItem {
 
 const wishlistApi = {
   async getWishlist(): Promise<ServerWishlistItem[]> {
-    const res = await fetch(`${BASE_URL}/api/wishlists`, {
+    const res = await fetch(`${BASE_URL}/api/wishlist`, {
       credentials: "include",
     })
     const data = await res.json()
@@ -24,7 +24,7 @@ const wishlistApi = {
   },
 
   async addItem(productId: string): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/wishlists`, {
+    const res = await fetch(`${BASE_URL}/api/wishlist`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -37,7 +37,7 @@ const wishlistApi = {
   },
 
   async removeItem(productId: string): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/wishlists/${productId}`, {
+    const res = await fetch(`${BASE_URL}/api/wishlist/${productId}`, {
       method: "DELETE",
       credentials: "include",
     })

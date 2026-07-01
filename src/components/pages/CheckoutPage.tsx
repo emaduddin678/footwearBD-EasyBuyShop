@@ -9,6 +9,7 @@ import { DeliveryForm, type DeliveryData } from "@/components/storefront/checkou
 import { PaymentMethod, type PaymentData, type PaymentMethodType } from "@/components/storefront/checkout/PaymentMethod"
 import { CheckoutSummary } from "@/components/storefront/checkout/CheckoutSummary"
 import { OrderReview } from "@/components/storefront/checkout/OrderReview"
+import { createOrder, type CreateOrderPayload } from "@/lib/api/orders"
 
 /* ── helpers ── */
 const FREE_DELIVERY_THRESHOLD = 2000
@@ -222,7 +223,6 @@ export default function CheckoutPage() {
 
   /* ── Place order ── */
   async function handlePlaceOrder() {
-    router.push("/order-confirm")
     setSubmitAttempted(true)
     setTouched({
       firstName: true, lastName: true, email: true, phone: true,
@@ -233,7 +233,6 @@ export default function CheckoutPage() {
     const errs = validate()
     setErrors(errs)
     if (Object.keys(errs).length > 0) {
-      // Scroll to first error
       setTimeout(() => {
         firstErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
       }, 50)
@@ -241,47 +240,97 @@ export default function CheckoutPage() {
     }
 
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1500))
 
-    const orderData = {
-      orderId: `FBD-${Date.now()}`,
-      items: cartItems,
+    // Map cart items → backend order items.
+    // productId is only included when the id looks like a MongoDB ObjectId (24 hex chars).
+    const isObjectId = (id: string | number) => /^[0-9a-fA-F]{24}$/.test(String(id))
+    const orderItems = cartItems.map((item) => ({
+      ...(isObjectId(item.id) ? { productId: String(item.id) } : {}),
+      productName: item.name,
+      variant: { size: item.size },
+      quantity: item.quantity,
+      unitPrice: parsePrice(item.price),
+      totalPrice: parsePrice(item.price) * item.quantity,
+    }))
+
+    // Frontend uses "cod"; backend enum is "cash_on_delivery"
+    const backendPaymentMethod =
+      payment.method === "cod" ? "cash_on_delivery" : (payment.method as CreateOrderPayload["payment"]["method"])
+
+    const payload: CreateOrderPayload = {
       customer: {
-        firstName: contact.firstName,
-        lastName: contact.lastName,
+        name: `${contact.firstName} ${contact.lastName}`.trim(),
         email: contact.email,
         phone: contact.phone,
+        shippingAddress: {
+          street: isPickup ? "Store Pickup" : `${delivery.address}, ${delivery.area}`,
+          city: isPickup ? "Dhaka" : delivery.city,
+          state: isPickup ? "Dhaka" : delivery.city,
+          zip: delivery.postalCode || undefined,
+          country: "Bangladesh",
+        },
       },
-      delivery: {
-        type: delivery.type,
-        address: delivery.address,
-        area: delivery.area,
-        city: delivery.city,
-        postalCode: delivery.postalCode,
-        instructions: delivery.instructions,
-        speed: delivery.speed,
-        charge: deliveryCharge,
-      },
-      payment: {
-        method: payment.method,
-        accountNumber:
-          payment.method === "bkash" || payment.method === "nagad" || payment.method === "rocket"
-            ? payment.accountNumber
-            : null,
-      },
+      items: orderItems,
       pricing: {
         subtotal,
-        discount: discountAmount,
-        deliveryCharge,
+        discountAmount: discountAmount || undefined,
+        shippingCost: deliveryCharge,
         total,
       },
-      placedAt: new Date().toISOString(),
+      payment: { method: backendPaymentMethod },
+      source: "website",
     }
 
-    sessionStorage.setItem("lastOrder", JSON.stringify(orderData))
-    sessionStorage.removeItem("appliedPromo")
-    dispatch(clearCart())
-    router.push("/order-confirm")
+    try {
+      const result = await createOrder(payload)
+
+      // Save enough data for OrderConfirmPage to render without another API call
+      const orderData = {
+        orderId: result.payload.orderId,
+        items: cartItems,
+        customer: {
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          phone: contact.phone,
+        },
+        delivery: {
+          type: delivery.type,
+          address: delivery.address,
+          area: delivery.area,
+          city: delivery.city,
+          postalCode: delivery.postalCode,
+          instructions: delivery.instructions,
+          speed: delivery.speed,
+          charge: deliveryCharge,
+        },
+        payment: {
+          method: payment.method,
+          accountNumber:
+            payment.method === "bkash" || payment.method === "nagad" || payment.method === "rocket"
+              ? payment.accountNumber
+              : null,
+        },
+        pricing: {
+          subtotal,
+          discount: discountAmount,
+          deliveryCharge,
+          total,
+        },
+        placedAt: result.payload.createdAt ?? new Date().toISOString(),
+      }
+
+      sessionStorage.setItem("lastOrder", JSON.stringify(orderData))
+      sessionStorage.removeItem("appliedPromo")
+      dispatch(clearCart())
+      router.push("/order-confirm")
+    } catch (err) {
+      setLoading(false)
+      setErrors((prev) => ({
+        ...prev,
+        _submit: err instanceof Error ? err.message : "Failed to place order. Please try again.",
+      }))
+    }
   }
 
   /* collect contact-level errors for the ref */
@@ -442,6 +491,11 @@ export default function CheckoutPage() {
 
         {/* ── RIGHT: summary (desktop) ── */}
         <div className="hidden lg:block lg:col-span-1">
+          {errors._submit && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700">
+              {errors._submit}
+            </div>
+          )}
           <CheckoutSummary
             items={cartItems}
             subtotal={subtotal}
@@ -457,6 +511,11 @@ export default function CheckoutPage() {
 
       {/* ── Mobile summary (below forms) ── */}
       <div className="lg:hidden mt-6">
+        {errors._submit && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700">
+            {errors._submit}
+          </div>
+        )}
         <CheckoutSummary
           items={cartItems}
           subtotal={subtotal}

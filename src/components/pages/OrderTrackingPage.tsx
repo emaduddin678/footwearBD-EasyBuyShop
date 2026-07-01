@@ -8,6 +8,7 @@ import { TrackingTimeline } from "@/components/storefront/tracking/TrackingTimel
 import { TrackingOrderSummary } from "@/components/storefront/tracking/TrackingOrderSummary"
 import { TrackingMap } from "@/components/storefront/tracking/TrackingMap"
 import { TrackingFAQ } from "@/components/storefront/tracking/TrackingFAQ"
+import { trackOrder, type TrackOrderResult } from "@/lib/api/orders"
 
 /* ─── Types ─────────────────────────────────────────── */
 
@@ -34,91 +35,91 @@ interface MockOrder {
   timeline: TimelineStep[]
 }
 
-/* ─── Mock data ──────────────────────────────────────── */
+/* ─── Map backend TrackOrderResult → display MockOrder ─── */
 
-function getMockOrder(orderId: string): MockOrder | null {
-  if (!orderId.startsWith("FBD-")) return null
+// Backend statuses: pending | confirmed | processing | shipped | delivered | cancelled | refunded
+// Frontend STATUS_CONFIG keys: order_placed | payment_confirmed | being_packed | shipped | out_for_delivery | delivered | cancelled
+const BACKEND_TO_DISPLAY_STATUS: Record<string, string> = {
+  pending: "order_placed",
+  confirmed: "order_placed",
+  processing: "being_packed",
+  shipped: "shipped",
+  delivered: "delivered",
+  cancelled: "cancelled",
+  refunded: "cancelled",
+}
+
+const ALL_STEPS: { status: string; label: string; description: string }[] = [
+  { status: "order_placed",      label: "Order Placed",      description: "Your order has been confirmed" },
+  { status: "being_packed",      label: "Being Packed",      description: "Our team is carefully packing your order" },
+  { status: "shipped",           label: "Shipped",           description: "Handed to delivery partner" },
+  { status: "out_for_delivery",  label: "Out for Delivery",  description: "Delivery agent will contact you" },
+  { status: "delivered",         label: "Delivered",         description: "Order delivered successfully" },
+]
+
+const STEP_ORDER = ALL_STEPS.map((s) => s.status)
+
+function buildTimeline(displayStatus: string, backendTimeline: TrackOrderResult["timeline"]): TimelineStep[] {
+  const currentIdx = STEP_ORDER.indexOf(displayStatus)
+
+  // Index last real event timestamps from the backend timeline
+  const timestampByStep: Record<string, string> = {}
+  for (const entry of backendTimeline) {
+    const action = entry.action.toLowerCase()
+    if (action.includes("creat") || action.includes("placed")) timestampByStep["order_placed"] = entry.at
+    if (action.includes("pack") || action.includes("process")) timestampByStep["being_packed"] = entry.at
+    if (action.includes("ship") || action.includes("despatch")) timestampByStep["shipped"] = entry.at
+    if (action.includes("out for delivery")) timestampByStep["out_for_delivery"] = entry.at
+    if (action.includes("deliver")) timestampByStep["delivered"] = entry.at
+  }
+
+  return ALL_STEPS.map((step, idx) => {
+    const completed = idx < currentIdx || displayStatus === "delivered"
+    const active = step.status === displayStatus && displayStatus !== "delivered"
+    return {
+      status: step.status,
+      label: step.label,
+      description: step.description,
+      timestamp: timestampByStep[step.status] ?? null,
+      completed,
+      active,
+    }
+  })
+}
+
+function mapToMockOrder(result: TrackOrderResult): MockOrder {
+  const displayStatus = BACKEND_TO_DISPLAY_STATUS[result.status] ?? "order_placed"
+  const timeline = buildTimeline(displayStatus, result.timeline)
+
+  const estimatedDelivery =
+    result.shipping?.estimatedDelivery ??
+    new Date(Date.now() + 5 * 86_400_000).toISOString().split("T")[0]
 
   return {
-    orderId,
-    status: "being_packed",
-    placedAt: "2026-06-26T15:45:00",
-    estimatedDelivery: "2026-06-29",
-    customer: {
-      name: "Rahim Uddin",
-      phone: "+880 1712-345678",
-      address: "House 12, Road 4, Block B, Dhanmondi",
-      city: "Dhaka",
-    },
+    orderId: result.orderId,
+    status: displayStatus,
+    placedAt: result.createdAt,
+    estimatedDelivery,
+    customer: { name: "—", phone: "—", address: "—", city: "—" },
     delivery: {
       type: "home",
       speed: "standard",
       charge: 0,
-      agentName: "Mohammad Karim",
-      agentPhone: "+880 1812-345678",
+      agentName: "—",
+      agentPhone: "—",
     },
-    payment: { method: "bkash", amount: 799 },
-    items: [
-      {
-        id: 1,
-        name: "Outdoor Slide",
-        brand: "Bata",
-        size: 38,
-        quantity: 1,
-        price: 799,
-        image: "https://placehold.co/56x56/f5f5f5/cccccc?text=%F0%9F%91%9F",
-      },
-    ],
-    pricing: { subtotal: 799, delivery: 0, discount: 0, total: 799 },
-    timeline: [
-      {
-        status: "order_placed",
-        label: "Order Placed",
-        description: "Your order has been confirmed",
-        timestamp: "2026-06-26T15:45:00",
-        completed: true,
-      },
-      {
-        status: "payment_confirmed",
-        label: "Payment Confirmed",
-        description: "bKash payment of ৳799 received",
-        timestamp: "2026-06-26T15:47:00",
-        completed: true,
-      },
-      {
-        status: "being_packed",
-        label: "Being Packed",
-        description: "Our team is carefully packing your order",
-        timestamp: null,
-        expectedDate: "2026-06-27",
-        completed: false,
-        active: true,
-      },
-      {
-        status: "shipped",
-        label: "Shipped",
-        description: "Handed to delivery partner",
-        timestamp: null,
-        expectedDate: "2026-06-28",
-        completed: false,
-      },
-      {
-        status: "out_for_delivery",
-        label: "Out for Delivery",
-        description: "Delivery agent will contact you",
-        timestamp: null,
-        expectedDate: "2026-06-29",
-        completed: false,
-      },
-      {
-        status: "delivered",
-        label: "Delivered",
-        description: "Order delivered successfully",
-        timestamp: null,
-        expectedDate: "2026-06-29",
-        completed: false,
-      },
-    ],
+    payment: { method: "—", amount: 0 },
+    items: result.items.map((it, i) => ({
+      id: i,
+      name: it.productName,
+      brand: "",
+      size: parseInt(it.variant?.size ?? "0") || 0,
+      quantity: it.quantity,
+      price: 0,
+      image: "https://placehold.co/56x56/f5f5f5/cccccc?text=%F0%9F%91%9F",
+    })),
+    pricing: { subtotal: 0, delivery: 0, discount: 0, total: 0 },
+    timeline,
   }
 }
 
@@ -297,76 +298,22 @@ export default function OrderTrackingPage() {
   const [error, setError] = useState(false)
   const [searched, setSearched] = useState(false)
 
-  const doSearch = useCallback((orderId: string, _phone: string) => {
+  const doSearch = useCallback(async (orderId: string, _phone: string) => {
+    if (!orderId.trim()) return
     setLoading(true)
     setError(false)
     setSearched(true)
 
-    // Simulate network delay
-    setTimeout(() => {
-      // Try sessionStorage first (real order from checkout)
-      let found: MockOrder | null = null
-      try {
-        const raw = sessionStorage.getItem("lastOrder")
-        if (raw) {
-          const stored = JSON.parse(raw)
-          if (stored.orderId === orderId) {
-            // Map the sessionStorage shape to our MockOrder shape
-            found = {
-              orderId: stored.orderId,
-              status: "being_packed",
-              placedAt: stored.placedAt ?? new Date().toISOString(),
-              estimatedDelivery: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
-              customer: {
-                name: [stored.customer?.firstName, stored.customer?.lastName]
-                .filter(Boolean)
-                .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-                .join(" ") || "Customer",
-                phone: stored.customer?.phone ?? "",
-                address: stored.delivery?.address ?? "",
-                city: stored.delivery?.city ?? "Dhaka",
-              },
-              delivery: {
-                type: stored.delivery?.type ?? "home",
-                speed: stored.delivery?.speed ?? "standard",
-                charge: stored.pricing?.deliveryCharge ?? 0,
-                agentName: "Mohammad Karim",
-                agentPhone: "+880 1812-345678",
-              },
-              payment: {
-                method: stored.payment?.method ?? "cod",
-                amount: stored.pricing?.total ?? 0,
-              },
-              items: (stored.items ?? []).map((it: { id: number; name: string; price: string; size: string; quantity: number }) => ({
-                id: it.id,
-                name: it.name,
-                brand: "",
-                size: parseInt(it.size) || 0,
-                quantity: it.quantity,
-                price: parseInt(it.price) || 0,
-                image: "https://placehold.co/56x56/f5f5f5/cccccc?text=👟",
-              })),
-              pricing: {
-                subtotal: stored.pricing?.subtotal ?? 0,
-                delivery: stored.pricing?.deliveryCharge ?? 0,
-                discount: stored.pricing?.discount ?? 0,
-                total: stored.pricing?.total ?? 0,
-              },
-              timeline: getMockOrder(orderId)?.timeline ?? [],
-            }
-          }
-        }
-      } catch { /* ignore */ }
-
-      // Fallback to mock
-      if (!found) {
-        found = getMockOrder(orderId)
-      }
-
-      setOrder(found)
-      setError(found === null)
+    try {
+      const result = await trackOrder(orderId.trim())
+      setOrder(mapToMockOrder(result.payload))
+      setError(false)
+    } catch {
+      setOrder(null)
+      setError(true)
+    } finally {
       setLoading(false)
-    }, 600)
+    }
   }, [])
 
   // Auto-search when orderId is in URL
