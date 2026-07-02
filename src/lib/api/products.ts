@@ -110,8 +110,16 @@ function formatTaka(amount: number): string {
   return `৳${amount.toLocaleString("en-IN")}`
 }
 
+/** `p.discountPercent` comes back null on every live product even when
+ *  regularPrice > sellingPrice (confirmed against the running backend) —
+ *  computed here instead of trusted, so the SALE badge actually fires. */
+function computeDiscountPercent(p: BackendProduct): number {
+  if (p.regularPrice <= p.sellingPrice || p.regularPrice <= 0) return 0
+  return Math.round(((p.regularPrice - p.sellingPrice) / p.regularPrice) * 100)
+}
+
 function buildBadge(p: BackendProduct): { badge: string | null; badgeColor: string | null } {
-  const discount = p.discountPercent ?? 0
+  const discount = computeDiscountPercent(p)
   if (discount >= 10) {
     return { badge: `SALE ${discount}%`, badgeColor: "#ef4444" }
   }
