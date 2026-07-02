@@ -46,6 +46,18 @@ const authApi = {
     return data.payload.me as AuthUser
   },
 
+  // The access token cookie only lives ~55 minutes; the refresh token lives 30 days.
+  // Call this to mint a fresh access token from a still-valid refresh token cookie.
+  async refreshToken(): Promise<void> {
+    const res = await fetch(`${BASE_URL}/api/auth/refresh-token`, {
+      credentials: "include",
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { message?: string }).message ?? "Session refresh failed")
+    }
+  },
+
   async register(payload: {
     firstName: string
     lastName: string
@@ -61,6 +73,28 @@ const authApi = {
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.message ?? "Registration failed")
+    return data.message as string
+  },
+
+  async forgetPassword(email: string): Promise<string> {
+    const res = await fetch(`${BASE_URL}/api/users/forget-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message ?? "Failed to send reset email")
+    return data.message as string
+  },
+
+  async resetPassword(token: string, password: string): Promise<string> {
+    const res = await fetch(`${BASE_URL}/api/users/reset-password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message ?? "Failed to reset password")
     return data.message as string
   },
 }

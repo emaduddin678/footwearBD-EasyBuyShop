@@ -29,7 +29,15 @@ export const checkAuthStatus = createAsyncThunk(
     try {
       return await authApi.checkAuth()
     } catch {
-      return rejectWithValue(null)
+      // Access token cookie (55 min) may have simply expired while the refresh
+      // token cookie (30 days) is still valid — try a silent refresh once before
+      // treating this as a real logout.
+      try {
+        await authApi.refreshToken()
+        return await authApi.checkAuth()
+      } catch {
+        return rejectWithValue(null)
+      }
     }
   },
 )
@@ -77,6 +85,9 @@ const authSlice = createSlice({
       state.status = "idle"
       state.error = null
       state.sessionChecked = true
+    },
+    updateUser(state, action: PayloadAction<Partial<AuthUser>>) {
+      if (state.user) Object.assign(state.user, action.payload)
     },
   },
   extraReducers: (builder) => {
@@ -127,5 +138,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { clearAuth } = authSlice.actions
+export const { clearAuth, updateUser } = authSlice.actions
 export default authSlice.reducer

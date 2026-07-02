@@ -11,20 +11,13 @@ import {
   clearCart,
   type CartItem,
 } from "@/lib/store/cartSlice"
-import { toggleWishlist } from "@/lib/store/wishlistSlice"
+import { toggleWishlistItem } from "@/lib/store/wishlistSlice"
 import { ProductCard } from "@/components/storefront/ProductCard"
 import { bestSellers } from "@/lib/data/products"
+import { applyCouponCode, type PromoResult } from "@/lib/api/discounts"
 
 const FREE_DELIVERY_THRESHOLD = 2000
 const DELIVERY_FEE = 120
-
-type PromoResult = { type: "percent"; value: number } | { type: "freeship" }
-
-const COUPON_CODES: Record<string, PromoResult> = {
-  EID20: { type: "percent", value: 20 },
-  WELCOME10: { type: "percent", value: 10 },
-  FREESHIP: { type: "freeship" },
-}
 
 interface Toast {
   id: string
@@ -109,12 +102,21 @@ export function CartPage() {
   const [appliedPromo, setAppliedPromo] = useState<PromoResult | null>(null)
   const [couponError, setCouponError] = useState("")
   const [couponSuccess, setCouponSuccess] = useState("")
+  const [couponLoading, setCouponLoading] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
   const timerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   useEffect(() => {
     const refs = timerRefs.current
     return () => Object.values(refs).forEach(clearTimeout)
+  }, [])
+
+  /* restore a previously applied promo (e.g. after a refresh) */
+  useEffect(() => {
+    const raw = sessionStorage.getItem("appliedPromo")
+    if (raw) {
+      try { setAppliedPromo(JSON.parse(raw)) } catch { /* ignore */ }
+    }
   }, [])
 
   function dismissToast(id: string) {
@@ -155,7 +157,7 @@ export function CartPage() {
     dispatch(removeFromCart({ id: item.id, size: item.size }))
     if (!wishlistItems.some((w) => w.id === item.id)) {
       dispatch(
-        toggleWishlist({
+        toggleWishlistItem({
           id: item.id,
           name: item.name,
           brand: "",
@@ -179,31 +181,42 @@ export function CartPage() {
     showToast(`wl-${item.id}-${Date.now()}`, "Moved to Wishlist ♡")
   }
 
-  function handleApplyCoupon() {
+  async function handleApplyCoupon() {
     const code = coupon.trim().toUpperCase()
-    const promo = COUPON_CODES[code]
-    if (promo) {
-      setAppliedPromo(promo)
-      setCouponSuccess(
-        promo.type === "percent"
-          ? `${promo.value}% discount applied!`
-          : "Free shipping applied!",
-      )
-      setCouponError("")
-    } else {
-      setCouponError("Invalid promo code. Try EID20")
-      setCouponSuccess("")
-      setAppliedPromo(null)
+    if (!code) return
+    setCouponLoading(true)
+    setCouponError("")
+    setCouponSuccess("")
+    try {
+      const res = await applyCouponCode(code, subtotal)
+      if (res.payload.valid) {
+        const promo: PromoResult = {
+          code: res.payload.code ?? code,
+          discountAmount: res.payload.discountAmount ?? 0,
+          freeShipping: res.payload.freeShipping ?? false,
+          label: res.payload.label ?? "Discount applied",
+        }
+        setAppliedPromo(promo)
+        sessionStorage.setItem("appliedPromo", JSON.stringify(promo))
+        setCouponSuccess(`${promo.label} applied!`)
+      } else {
+        setAppliedPromo(null)
+        sessionStorage.removeItem("appliedPromo")
+        setCouponError(res.payload.message || "Invalid promo code")
+      }
+    } catch {
+      setCouponError("Couldn't validate code. Please try again.")
+    } finally {
+      setCouponLoading(false)
     }
   }
 
   /* ── Derived totals ── */
   const subtotal = items.reduce((s, i) => s + parsePrice(i.price) * i.quantity, 0)
   const totalQty = items.reduce((s, i) => s + i.quantity, 0)
-  const discountPct = appliedPromo?.type === "percent" ? appliedPromo.value : 0
-  const discountAmount = Math.round((subtotal * discountPct) / 100)
+  const discountAmount = appliedPromo?.discountAmount ?? 0
   const afterDiscount = subtotal - discountAmount
-  const freeShip = appliedPromo?.type === "freeship"
+  const freeShip = appliedPromo?.freeShipping === true
   const deliveryFee = afterDiscount >= FREE_DELIVERY_THRESHOLD || freeShip ? 0 : DELIVERY_FEE
   const total = afterDiscount + deliveryFee
   const deliveryPct = Math.min((subtotal / FREE_DELIVERY_THRESHOLD) * 100, 100)
@@ -444,7 +457,7 @@ export function CartPage() {
 
               {discountAmount > 0 && (
                 <div className="flex justify-between text-green-600 font-semibold">
-                  <span>Promo discount ({discountPct}%)</span>
+                  <span>Promo discount ({appliedPromo?.label})</span>
                   <span>−৳{fmt(discountAmount)}</span>
                 </div>
               )}
@@ -505,9 +518,10 @@ export function CartPage() {
               />
               <button
                 onClick={handleApplyCoupon}
-                className="h-10 px-4 bg-[#1A2B5E] text-white rounded-lg text-sm font-bold hover:bg-[#D4A017] transition-colors whitespace-nowrap"
+                disabled={couponLoading}
+                className="h-10 px-4 bg-[#1A2B5E] text-white rounded-lg text-sm font-bold hover:bg-[#D4A017] transition-colors whitespace-nowrap disabled:opacity-60"
               >
-                Apply
+                {couponLoading ? "Checking…" : "Apply"}
               </button>
             </div>
             {couponError && (

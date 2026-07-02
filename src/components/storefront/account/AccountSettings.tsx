@@ -2,15 +2,9 @@
 
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
-
-const mockUser = {
-  firstName: "Rahim",
-  lastName: "Uddin",
-  email: "rahim@example.com",
-  phone: "+880 1712-345678",
-  dob: "",
-  gender: "Male",
-}
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { updateUser } from "@/lib/store/authSlice"
+import userApi from "@/lib/api/user"
 
 function getPasswordStrength(pwd: string): { label: string; bgColor: string; width: string } {
   if (!pwd) return { label: "", bgColor: "", width: "0%" }
@@ -98,12 +92,20 @@ function Toggle({ checked, onChange }: ToggleProps) {
 }
 
 export default function AccountSettings() {
-  const [profile, setProfile] = useState(mockUser)
+  const dispatch = useAppDispatch()
+  const user = useAppSelector((s) => s.auth.user)
+
+  const [firstName, setFirstName] = useState(user?.firstName ?? "")
+  const [lastName, setLastName] = useState(user?.lastName ?? "")
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? "")
+  const [profileSaving, setProfileSaving] = useState(false)
   const [profileToast, setProfileToast] = useState(false)
+  const [profileError, setProfileError] = useState("")
 
   const [currentPwd, setCurrentPwd] = useState("")
   const [newPwd, setNewPwd] = useState("")
   const [confirmPwd, setConfirmPwd] = useState("")
+  const [pwdSaving, setPwdSaving] = useState(false)
   const [pwdToast, setPwdToast] = useState(false)
   const [pwdError, setPwdError] = useState("")
 
@@ -117,19 +119,44 @@ export default function AccountSettings() {
   const [deleteInput, setDeleteInput] = useState("")
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  function handleProfileSave() {
-    setProfileToast(true)
-    setTimeout(() => setProfileToast(false), 3000)
+  async function handleProfileSave() {
+    if (!user) return
+    setProfileSaving(true)
+    setProfileError("")
+    try {
+      const updated = await userApi.updateProfile(user._id, { firstName, lastName, phoneNumber })
+      dispatch(updateUser(updated))
+      setProfileToast(true)
+      setTimeout(() => setProfileToast(false), 3000)
+    } catch (err) {
+      setProfileError((err as Error).message || "Failed to update profile")
+    } finally {
+      setProfileSaving(false)
+    }
   }
 
-  function handlePasswordUpdate() {
+  async function handlePasswordUpdate() {
+    if (!user) return
     setPwdError("")
     if (!currentPwd) { setPwdError("Enter your current password."); return }
-    if (newPwd.length < 6) { setPwdError("New password must be at least 6 characters."); return }
+    if (newPwd.length < 8) { setPwdError("New password must be at least 8 characters."); return }
     if (newPwd !== confirmPwd) { setPwdError("Passwords do not match."); return }
-    setPwdToast(true)
-    setCurrentPwd(""); setNewPwd(""); setConfirmPwd("")
-    setTimeout(() => setPwdToast(false), 3000)
+
+    setPwdSaving(true)
+    try {
+      await userApi.updatePassword(user._id, {
+        oldPassword: currentPwd,
+        newPassword: newPwd,
+        confirmedPassword: confirmPwd,
+      })
+      setPwdToast(true)
+      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("")
+      setTimeout(() => setPwdToast(false), 3000)
+    } catch (err) {
+      setPwdError((err as Error).message || "Failed to update password")
+    } finally {
+      setPwdSaving(false)
+    }
   }
 
   return (
@@ -140,36 +167,47 @@ export default function AccountSettings() {
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <h3 className="font-semibold text-[#1A2B5E] mb-4">Personal Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { label: "First Name", key: "firstName", type: "text" },
-            { label: "Last Name", key: "lastName", type: "text" },
-            { label: "Email", key: "email", type: "email" },
-            { label: "Phone", key: "phone", type: "tel" },
-            { label: "Date of Birth", key: "dob", type: "date" },
-          ].map(({ label, key, type }) => (
-            <div key={key}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input
-                type={type}
-                value={profile[key as keyof typeof profile]}
-                onChange={(e) => setProfile({ ...profile, [key]: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
-              />
-            </div>
-          ))}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-            <select
-              value={profile.gender}
-              onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
-            >
-              {["Male", "Female", "Prefer not to say"].map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </select>
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={user?.email ?? ""}
+              disabled
+              title="Email cannot be changed here"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
+            />
           </div>
         </div>
+        {profileError && (
+          <p className="mt-3 text-sm text-red-500">{profileError}</p>
+        )}
         {profileToast && (
           <div className="mt-4 flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 text-sm">
             ✓ Profile updated!
@@ -177,9 +215,10 @@ export default function AccountSettings() {
         )}
         <button
           onClick={handleProfileSave}
-          className="mt-4 w-full bg-[#1A2B5E] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d1733] transition-colors"
+          disabled={profileSaving}
+          className="mt-4 w-full bg-[#1A2B5E] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d1733] transition-colors disabled:opacity-60"
         >
-          Save Changes
+          {profileSaving ? "Saving…" : "Save Changes"}
         </button>
       </div>
 
@@ -201,9 +240,10 @@ export default function AccountSettings() {
         )}
         <button
           onClick={handlePasswordUpdate}
-          className="mt-4 bg-[#1A2B5E] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d1733] transition-colors"
+          disabled={pwdSaving}
+          className="mt-4 bg-[#1A2B5E] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d1733] transition-colors disabled:opacity-60"
         >
-          Update Password
+          {pwdSaving ? "Updating…" : "Update Password"}
         </button>
       </div>
 

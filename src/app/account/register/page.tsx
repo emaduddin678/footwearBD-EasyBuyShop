@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import RegisterPage from "@/components/pages/RegisterPage"
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 }
 
 export default function Page() {
-  return <RegisterPage />
+  return (
+    <Suspense fallback={null}>
+      <RegisterPage />
+    </Suspense>
+  )
 }

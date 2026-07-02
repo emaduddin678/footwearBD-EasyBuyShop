@@ -1,3 +1,11 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { ProductCard } from "./ProductCard"
+import { allPlpProducts, type PlpProduct } from "@/lib/data/products"
+
+const STORAGE_KEY = "recentlyViewed"
+
 function SkeletonCard() {
   return (
     <div className="flex-shrink-0 w-[280px] bg-white rounded-[14px] overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.05)] opacity-60">
@@ -19,6 +27,26 @@ function SkeletonCard() {
 }
 
 export function RecentlyViewed() {
+  const [loaded, setLoaded] = useState(false)
+  const [products, setProducts] = useState<PlpProduct[]>([])
+
+  useEffect(() => {
+    try {
+      const ids: number[] = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+      setProducts(
+        ids
+          .map((id) => allPlpProducts.find((p) => p.id === id))
+          .filter((p): p is PlpProduct => p !== undefined),
+      )
+    } catch {
+      // localStorage not available
+    } finally {
+      setLoaded(true)
+    }
+  }, [])
+
+  if (loaded && products.length === 0) return null
+
   return (
     <section className="bg-[#f4f5f9] py-[72px]">
       <div className="max-w-[1440px] mx-auto px-16">
@@ -39,10 +67,13 @@ export function RecentlyViewed() {
         </div>
 
         <div className="flex gap-[22px] overflow-x-auto pb-3 [scrollbar-width:thin] [scrollbar-color:#1A2B5E_#e5e7eb]">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+          {!loaded
+            ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+            : products.map((p) => (
+                <div key={p.id} className="flex-shrink-0 w-[280px]">
+                  <ProductCard product={p} />
+                </div>
+              ))}
         </div>
       </div>
     </section>

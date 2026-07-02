@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
-import { toggleWishlist } from "@/lib/store/wishlistSlice"
+import { toggleWishlistItem } from "@/lib/store/wishlistSlice"
 import type { PlpProduct } from "@/lib/data/products"
 
 const PLACEHOLDER = "https://placehold.co/600x600/f5f5f5/cccccc?text=👟"
@@ -24,7 +24,7 @@ export function ImageGallery({ product }: { product: PlpProduct }) {
 
   const handleWishlist = () => {
     dispatch(
-      toggleWishlist({
+      toggleWishlistItem({
         id: product.id,
         name: product.name,
         brand: product.brand,

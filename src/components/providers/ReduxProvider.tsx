@@ -17,6 +17,16 @@ function AuthInitializer() {
     dispatch(checkAuthStatus())
   }, [dispatch])
 
+  // The access token cookie only lives ~55 minutes. For a tab left open longer than
+  // that, re-check periodically so the refresh-token fallback in checkAuthStatus
+  // kicks in before some other authenticated request hits a stale 401.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      dispatch(checkAuthStatus())
+    }, 50 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [dispatch])
+
   // Sync wishlist when user logs in; clear when user logs out
   useEffect(() => {
     const currentId = user?._id ?? null

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { addToCart } from "@/lib/store/cartSlice"
-import { toggleWishlist } from "@/lib/store/wishlistSlice"
+import { toggleWishlistItem } from "@/lib/store/wishlistSlice"
 import { SizeSelector } from "./SizeSelector"
 import type { PlpProduct } from "@/lib/data/products"
 
@@ -171,7 +171,7 @@ export function ProductInfo({ product }: { product: PlpProduct }) {
 
   const handleWishlist = () => {
     dispatch(
-      toggleWishlist({
+      toggleWishlistItem({
         id: product.id,
         name: product.name,
         brand: product.brand,

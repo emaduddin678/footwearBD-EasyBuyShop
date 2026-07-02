@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { ShoppingCart, X } from "lucide-react"
 import { useAppDispatch } from "@/lib/store/hooks"
-import { removeFromWishlist, type WishlistItem as WishlistItemType } from "@/lib/store/wishlistSlice"
+import { removeWishlistItem, toggleWishlistItem, type WishlistItem as WishlistItemType } from "@/lib/store/wishlistSlice"
 import { addToCart } from "@/lib/store/cartSlice"
 
 interface Props {
@@ -46,13 +46,10 @@ export function WishlistItemCard({
 
   function handleRemove() {
     setRemoved(true)
-    dispatch(removeFromWishlist({ id: item.id }))
+    dispatch(removeWishlistItem(item.id))
     onToast(`Removed from wishlist`, () => {
       setRemoved(false)
-      dispatch({
-        type: "wishlist/addToWishlist",
-        payload: item,
-      })
+      dispatch(toggleWishlistItem(item))
     })
   }
 

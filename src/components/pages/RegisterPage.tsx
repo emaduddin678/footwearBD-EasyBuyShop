@@ -8,6 +8,7 @@ import { PasswordInput } from "@/components/storefront/auth/PasswordInput"
 import { SocialLogin } from "@/components/storefront/auth/SocialLogin"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { registerUser } from "@/lib/store/authSlice"
+import { useRedirectIfAuthenticated } from "@/lib/hooks/useRedirectIfAuthenticated"
 
 function getStrength(pwd: string): { label: string; color: string; width: string } | null {
   if (pwd.length === 0) return null
@@ -42,6 +43,7 @@ export default function RegisterPage() {
   const router = useRouter()
   const dispatch = useAppDispatch()
   const authStatus = useAppSelector((s) => s.auth.status)
+  const { checking } = useRedirectIfAuthenticated()
 
   const [toast, setToast] = useState("")
   const showToast = (msg: string) => setToast(msg)
@@ -111,6 +113,16 @@ export default function RegisterPage() {
       const msg = (result.payload as string) || "Registration failed. Please try again."
       setErrors((prev) => ({ ...prev, server: msg }))
     }
+  }
+
+  if (checking) {
+    return (
+      <AuthLayout rightLink={{ label: "Already have an account? Sign In →", href: "/account/login" }}>
+        <div className="flex items-center justify-center py-24">
+          <p className="text-sm text-gray-400">Loading…</p>
+        </div>
+      </AuthLayout>
+    )
   }
 
   if (success) {

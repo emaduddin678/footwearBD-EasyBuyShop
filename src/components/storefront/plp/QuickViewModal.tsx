@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { addToCart } from "@/lib/store/cartSlice"
-import { toggleWishlist } from "@/lib/store/wishlistSlice"
+import { toggleWishlistItem } from "@/lib/store/wishlistSlice"
 import type { PlpProduct } from "@/lib/data/products"
 
 interface QuickViewModalProps {
@@ -61,7 +61,7 @@ export function QuickViewModal({ product, onClose }: QuickViewModalProps) {
   }
 
   const handleWishlist = () => {
-    dispatch(toggleWishlist({
+    dispatch(toggleWishlistItem({
       id: product.id,
       name: product.name,
       brand: product.brand,

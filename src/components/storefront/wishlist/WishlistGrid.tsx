@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useAppDispatch } from "@/lib/store/hooks"
-import { removeFromWishlist, type WishlistItem } from "@/lib/store/wishlistSlice"
+import { removeWishlistItem, toggleWishlistItem, type WishlistItem } from "@/lib/store/wishlistSlice"
 import { addToCart } from "@/lib/store/cartSlice"
 import { WishlistItemCard } from "./WishlistItem"
 
@@ -61,13 +61,11 @@ export function WishlistGrid({ items, onToast, onAddedToCart }: Props) {
   function handleBulkRemove() {
     const idsToRemove = [...selectedIds]
     const removedItems = items.filter((i) => idsToRemove.includes(i.id))
-    idsToRemove.forEach((id) => dispatch(removeFromWishlist({ id })))
+    idsToRemove.forEach((id) => dispatch(removeWishlistItem(id)))
     onToast(
       `Removed ${idsToRemove.length} item${idsToRemove.length > 1 ? "s" : ""}`,
       () => {
-        removedItems.forEach((item) =>
-          dispatch({ type: "wishlist/addToWishlist", payload: item }),
-        )
+        removedItems.forEach((item) => dispatch(toggleWishlistItem(item)))
       },
     )
     setSelectedIds(new Set())

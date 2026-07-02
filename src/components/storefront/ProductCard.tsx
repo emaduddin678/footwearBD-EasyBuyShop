@@ -5,7 +5,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { addToCart } from "@/lib/store/cartSlice"
-import { toggleWishlist } from "@/lib/store/wishlistSlice"
+import { toggleWishlistItem } from "@/lib/store/wishlistSlice"
 import type { Product } from "@/lib/data/products"
 
 interface ProductCardProps {
@@ -65,7 +65,7 @@ export function ProductCard({
     e.preventDefault()
     e.stopPropagation()
     dispatch(
-      toggleWishlist({
+      toggleWishlistItem({
         id: wishlistKey,
         name: product.name,
         brand: ("brand" in product ? (product as { brand: string }).brand : "") as string,

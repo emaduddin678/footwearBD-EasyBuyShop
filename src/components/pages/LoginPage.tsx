@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { AuthLayout } from "@/components/storefront/auth/AuthLayout"
 import { PasswordInput } from "@/components/storefront/auth/PasswordInput"
 import { SocialLogin } from "@/components/storefront/auth/SocialLogin"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { loginUser } from "@/lib/store/authSlice"
+import authApi from "@/lib/api/auth"
+import { useRedirectIfAuthenticated } from "@/lib/hooks/useRedirectIfAuthenticated"
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -21,12 +23,14 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   )
 }
 
-type ForgotStep = "idle" | "email" | "otp" | "newpass"
+type ForgotStep = "idle" | "email" | "sent"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const dispatch = useAppDispatch()
   const authStatus = useAppSelector((s) => s.auth.status)
+  const { checking } = useRedirectIfAuthenticated()
 
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
@@ -37,14 +41,25 @@ export default function LoginPage() {
 
   const [forgotStep, setForgotStep] = useState<ForgotStep>("idle")
   const [forgotIdentifier, setForgotIdentifier] = useState("")
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
-  const [newPass, setNewPass] = useState("")
-  const [confirmPass, setConfirmPass] = useState("")
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState("")
 
   const loading = authStatus === "loading"
 
   const showToast = (msg: string) => setToast(msg)
+
+  const handleSendResetLink = async () => {
+    setForgotError("")
+    setForgotLoading(true)
+    try {
+      await authApi.forgetPassword(forgotIdentifier.trim())
+      setForgotStep("sent")
+    } catch (err) {
+      setForgotError((err as Error).message || "Failed to send reset email")
+    } finally {
+      setForgotLoading(false)
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,8 +69,9 @@ export default function LoginPage() {
 
     if (loginUser.fulfilled.match(result)) {
       const user = result.payload
+      const returnUrl = searchParams.get("returnUrl") || "/account"
       showToast(`✓ Welcome back, ${user.firstName}!`)
-      setTimeout(() => router.push("/account"), 1000)
+      setTimeout(() => router.push(returnUrl), 1000)
     } else {
       const msg = (result.payload as string) || "Invalid email or password. Please try again."
       setError(`❌ ${msg}`)
@@ -64,18 +80,14 @@ export default function LoginPage() {
     }
   }
 
-  const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d?$/.test(value)) return
-    const next = [...otp]
-    next[index] = value
-    setOtp(next)
-    if (value && index < 5) otpRefs.current[index + 1]?.focus()
-  }
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus()
-    }
+  if (checking) {
+    return (
+      <AuthLayout rightLink={{ label: "New to FootwearBD? Register →", href: "/account/register" }}>
+        <div className="flex items-center justify-center py-24">
+          <p className="text-sm text-gray-400">Loading…</p>
+        </div>
+      </AuthLayout>
+    )
   }
 
   return (
@@ -192,7 +204,7 @@ export default function LoginPage() {
               <>
                 <h3 className="font-semibold text-[#1A2B5E]">Reset Your Password</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Enter your email and we&apos;ll send you a reset code
+                  Enter your email and we&apos;ll send you a link to reset your password
                 </p>
                 <input
                   type="email"
@@ -201,17 +213,20 @@ export default function LoginPage() {
                   placeholder="email@example.com"
                   className="w-full mt-3 h-[44px] border border-gray-200 rounded-xl px-4 text-sm bg-white outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] transition-all"
                 />
+                {forgotError && (
+                  <p className="text-sm text-red-500 mt-2">{forgotError}</p>
+                )}
                 <button
                   type="button"
-                  onClick={() => setForgotStep("otp")}
-                  disabled={!forgotIdentifier}
+                  onClick={handleSendResetLink}
+                  disabled={!forgotIdentifier || forgotLoading}
                   className="w-full mt-3 bg-[#1A2B5E] text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-[#0d1733] transition-all disabled:opacity-50"
                 >
-                  Send Reset Code →
+                  {forgotLoading ? "Sending…" : "Send Reset Link →"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setForgotStep("idle")}
+                  onClick={() => { setForgotStep("idle"); setForgotError("") }}
                   className="w-full mt-2 text-sm text-gray-500 hover:text-gray-700"
                 >
                   ← Back to Sign In
@@ -219,79 +234,18 @@ export default function LoginPage() {
               </>
             )}
 
-            {forgotStep === "otp" && (
+            {forgotStep === "sent" && (
               <>
-                <p className="text-sm text-gray-500">Enter the 6-digit code sent to your email</p>
-                <div className="flex gap-2 mt-3">
-                  {otp.map((digit, i) => (
-                    <input
-                      key={i}
-                      ref={(el) => { otpRefs.current[i] = el }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(i, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      className="w-10 h-11 sm:w-11 sm:h-11 border border-gray-200 rounded-lg text-center text-xl font-bold text-[#1A2B5E] bg-white outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E] transition-all"
-                    />
-                  ))}
-                </div>
+                <h3 className="font-semibold text-[#1A2B5E]">Check Your Email</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  We&apos;ve sent a password reset link to{" "}
+                  <span className="font-semibold text-[#1A2B5E]">{forgotIdentifier}</span>.
+                  The link expires in 10 minutes.
+                </p>
                 <button
                   type="button"
-                  onClick={() => setForgotStep("newpass")}
+                  onClick={() => { setForgotStep("idle"); setForgotIdentifier("") }}
                   className="w-full mt-3 bg-[#1A2B5E] text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-[#0d1733] transition-all"
-                >
-                  Verify Code →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForgotStep("email")}
-                  className="w-full mt-2 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  ← Back
-                </button>
-              </>
-            )}
-
-            {forgotStep === "newpass" && (
-              <>
-                <h3 className="font-semibold text-[#1A2B5E]">Set New Password</h3>
-                <PasswordInput
-                  label="New Password"
-                  value={newPass}
-                  onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="New password"
-                  className="mt-3"
-                  autoComplete="new-password"
-                />
-                <PasswordInput
-                  label="Confirm Password"
-                  value={confirmPass}
-                  onChange={(e) => setConfirmPass(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="mt-3"
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast("✓ Password updated! Please sign in.")
-                    setForgotStep("idle")
-                    setNewPass("")
-                    setConfirmPass("")
-                    setOtp(["", "", "", "", "", ""])
-                    setForgotIdentifier("")
-                  }}
-                  disabled={!newPass || newPass !== confirmPass}
-                  className="w-full mt-3 bg-[#1A2B5E] text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-[#0d1733] transition-all disabled:opacity-50"
-                >
-                  Update Password →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForgotStep("idle")}
-                  className="w-full mt-2 text-sm text-gray-500 hover:text-gray-700"
                 >
                   ← Back to Sign In
                 </button>

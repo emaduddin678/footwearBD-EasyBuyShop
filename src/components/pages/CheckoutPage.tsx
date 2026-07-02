@@ -10,11 +10,10 @@ import { PaymentMethod, type PaymentData, type PaymentMethodType } from "@/compo
 import { CheckoutSummary } from "@/components/storefront/checkout/CheckoutSummary"
 import { OrderReview } from "@/components/storefront/checkout/OrderReview"
 import { createOrder, type CreateOrderPayload } from "@/lib/api/orders"
+import type { PromoResult } from "@/lib/api/discounts"
 
 /* ── helpers ── */
 const FREE_DELIVERY_THRESHOLD = 2000
-
-type PromoResult = { type: "percent"; value: number } | { type: "freeship" }
 
 function parsePrice(p: string) {
   return parseInt(p.replace(/[৳,\s]/g, ""), 10) || 0
@@ -155,10 +154,9 @@ export default function CheckoutPage() {
 
   /* ── Derived pricing ── */
   const subtotal = cartItems.reduce((s, i) => s + parsePrice(i.price) * i.quantity, 0)
-  const discountPct = appliedPromo?.type === "percent" ? appliedPromo.value : 0
-  const discountAmount = Math.round((subtotal * discountPct) / 100)
+  const discountAmount = appliedPromo?.discountAmount ?? 0
   const afterDiscount = subtotal - discountAmount
-  const freeShip = appliedPromo?.type === "freeship"
+  const freeShip = appliedPromo?.freeShipping === true
   const isPickup = delivery.type === "pickup"
 
   let deliveryCharge = 0
@@ -171,11 +169,7 @@ export default function CheckoutPage() {
   }
   const total = afterDiscount + deliveryCharge
 
-  const discountLabel = appliedPromo?.type === "percent"
-    ? `${discountPct}% off`
-    : appliedPromo?.type === "freeship"
-    ? "Free shipping"
-    : ""
+  const discountLabel = appliedPromo?.label ?? ""
 
   /* ── Validation ── */
   function validate(): FormErrors {
@@ -274,6 +268,7 @@ export default function CheckoutPage() {
       pricing: {
         subtotal,
         discountAmount: discountAmount || undefined,
+        couponCode: appliedPromo?.code || undefined,
         shippingCost: deliveryCharge,
         total,
       },
@@ -322,6 +317,7 @@ export default function CheckoutPage() {
 
       sessionStorage.setItem("lastOrder", JSON.stringify(orderData))
       sessionStorage.removeItem("appliedPromo")
+      redirectedRef.current = true // suppress the empty-cart guard before clearing the cart
       dispatch(clearCart())
       router.push("/order-confirm")
     } catch (err) {

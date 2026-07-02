@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Header } from "@/components/storefront/Header"
 import { AnnouncementBar } from "@/components/storefront/AnnouncementBar"
 import { Footer } from "@/components/storefront/Footer"
@@ -11,6 +12,7 @@ import OrderHistory from "@/components/storefront/account/OrderHistory"
 import AddressBook from "@/components/storefront/account/AddressBook"
 import AccountSettings from "@/components/storefront/account/AccountSettings"
 import LoyaltyPoints from "@/components/storefront/account/LoyaltyPoints"
+import { useAppSelector } from "@/lib/store/hooks"
 import {
   LayoutDashboard,
   Package,
@@ -28,7 +30,25 @@ const MOBILE_TABS: { id: AccountTab; label: string; icon: React.ComponentType<{ 
 ]
 
 export default function AccountDashboardPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<AccountTab>("overview")
+  const { user, sessionChecked } = useAppSelector((s) => s.auth)
+
+  useEffect(() => {
+    if (sessionChecked && !user) {
+      router.replace("/account/login?returnUrl=/account")
+    }
+  }, [sessionChecked, user, router])
+
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen font-sans bg-[#f4f5f9] flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading your account…</p>
+      </div>
+    )
+  }
+
+  if (!user) return null
 
   return (
     <div className="min-h-screen font-sans bg-[#f4f5f9]">

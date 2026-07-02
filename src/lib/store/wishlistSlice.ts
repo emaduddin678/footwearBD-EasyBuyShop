@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit"
 import wishlistApi from "@/lib/api/wishlist"
+import type { RootState } from "./index"
 
 export interface WishlistItem {
   id: string | number
@@ -58,6 +59,48 @@ export const syncWishlistFromServer = createAsyncThunk(
         })
     } catch (err) {
       return rejectWithValue((err as Error).message)
+    }
+  },
+)
+
+// Only real backend products (Mongo ObjectIds) can be persisted server-side —
+// mock/demo products used in a few "you may also like" rails are frontend-only.
+const isServerProductId = (id: string | number) => /^[0-9a-fA-F]{24}$/.test(String(id))
+
+// Toggling a wishlist item only ever touched local Redux state — nothing pushed
+// the change to the backend, so a logged-in user's additions/removals were
+// silently wiped the next time syncWishlistFromServer ran (e.g. on next login).
+// These thunks keep the same optimistic local update but also persist it.
+export const toggleWishlistItem = createAsyncThunk(
+  "wishlist/toggleItem",
+  async (item: WishlistItem, { dispatch, getState }) => {
+    const state = getState() as RootState
+    const wasWishlisted = state.wishlist.items.some((i) => String(i.id) === String(item.id))
+    dispatch(toggleWishlist(item))
+
+    if (!state.auth.user || !isServerProductId(item.id)) return
+
+    try {
+      if (wasWishlisted) await wishlistApi.removeItem(String(item.id))
+      else await wishlistApi.addItem(String(item.id))
+    } catch {
+      dispatch(toggleWishlist(item)) // revert the optimistic update
+    }
+  },
+)
+
+export const removeWishlistItem = createAsyncThunk(
+  "wishlist/removeItemAndPersist",
+  async (id: string | number, { dispatch, getState }) => {
+    const state = getState() as RootState
+    dispatch(removeFromWishlist({ id }))
+
+    if (!state.auth.user || !isServerProductId(id)) return
+
+    try {
+      await wishlistApi.removeItem(String(id))
+    } catch {
+      // best-effort — local removal stands, next login sync will reconcile
     }
   },
 )

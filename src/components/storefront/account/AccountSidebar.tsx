@@ -12,6 +12,8 @@ import {
   Gift,
   LogOut,
 } from "lucide-react"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { logoutUser } from "@/lib/store/authSlice"
 
 export type AccountTab = "overview" | "orders" | "wishlist" | "addresses" | "settings" | "loyalty"
 
@@ -31,10 +33,16 @@ const navItems: { id: AccountTab | "wishlist"; label: string; icon: React.Compon
 
 export default function AccountSidebar({ activeTab, onTabChange }: AccountSidebarProps) {
   const router = useRouter()
+  const dispatch = useAppDispatch()
+  const user = useAppSelector((s) => s.auth.user)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
-  function handleLogout() {
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : ""
+  const initials = user ? `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase() : ""
+
+  async function handleLogout() {
     setShowLogoutConfirm(false)
+    await dispatch(logoutUser())
     router.push("/")
   }
 
@@ -43,10 +51,10 @@ export default function AccountSidebar({ activeTab, onTabChange }: AccountSideba
       {/* Profile header */}
       <div className="bg-[#1A2B5E] p-6 text-center">
         <div className="w-[72px] h-[72px] rounded-full bg-[#D4A017] flex items-center justify-center mx-auto">
-          <span className="text-2xl font-bold text-white">RU</span>
+          <span className="text-2xl font-bold text-white">{initials}</span>
         </div>
-        <p className="text-white font-semibold mt-3">Rahim Uddin</p>
-        <p className="text-white/70 text-sm mt-0.5">rahim@example.com</p>
+        <p className="text-white font-semibold mt-3">{fullName}</p>
+        <p className="text-white/70 text-sm mt-0.5">{user?.email}</p>
         <span className="inline-block bg-[#D4A017] text-[#1A2B5E] text-xs font-semibold px-3 py-1 rounded-full mt-2">
           🥇 Gold Member
         </span>

@@ -1,43 +1,8 @@
 "use client"
 
-import { useState } from "react"
-
-interface Address {
-  id: string
-  label: string
-  isDefault: boolean
-  name: string
-  phone: string
-  street: string
-  area: string
-  city: string
-  postalCode: string
-}
-
-const INITIAL_ADDRESSES: Address[] = [
-  {
-    id: "ADDR-001",
-    label: "Home",
-    isDefault: true,
-    name: "Rahim Uddin",
-    phone: "+880 1712-345678",
-    street: "House 12, Road 4, Block B",
-    area: "Dhanmondi",
-    city: "Dhaka",
-    postalCode: "1205",
-  },
-  {
-    id: "ADDR-002",
-    label: "Office",
-    isDefault: false,
-    name: "Rahim Uddin",
-    phone: "+880 1712-345678",
-    street: "Level 5, Rupayan Trade Centre",
-    area: "Banglamotor",
-    city: "Dhaka",
-    postalCode: "1000",
-  },
-]
+import { useEffect, useState } from "react"
+import { useAppSelector } from "@/lib/store/hooks"
+import userApi, { type Address, type AddressInput } from "@/lib/api/user"
 
 const LABEL_ICONS: Record<string, string> = {
   Home: "🏠",
@@ -47,67 +12,116 @@ const LABEL_ICONS: Record<string, string> = {
 
 const CITIES = ["Dhaka", "Chittagong", "Sylhet", "Rajshahi", "Khulna", "Barisal", "Rangpur", "Mymensingh"]
 
-const emptyForm = { label: "Home", name: "", phone: "", street: "", area: "", city: "Dhaka", postalCode: "", isDefault: false }
+const emptyForm: AddressInput = {
+  label: "Home",
+  recipientName: "",
+  phoneNumber: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "Dhaka",
+  district: "",
+  division: "",
+  postalCode: "",
+  isDefault: false,
+}
 
 export default function AddressBook() {
-  const [addresses, setAddresses] = useState<Address[]>(INITIAL_ADDRESSES)
+  const userId = useAppSelector((s) => s.auth.user?._id)
+
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<AddressInput>(emptyForm)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState("")
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    userApi.getAddresses(userId)
+      .then((res) => { if (!cancelled) setAddresses(res.addresses) })
+      .catch((err) => { if (!cancelled) setError(err.message || "Failed to load addresses") })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [userId])
 
   function openAddForm() {
     setForm(emptyForm)
+    setFormError("")
     setEditingId(null)
     setShowForm(true)
   }
 
   function openEditForm(addr: Address) {
     setForm({
-      label: addr.label,
-      name: addr.name,
-      phone: addr.phone,
-      street: addr.street,
-      area: addr.area,
+      label: addr.label ?? "Home",
+      recipientName: addr.recipientName ?? "",
+      phoneNumber: addr.phoneNumber ?? "",
+      addressLine1: addr.addressLine1,
+      addressLine2: addr.addressLine2 ?? "",
       city: addr.city,
-      postalCode: addr.postalCode,
+      district: addr.district ?? "",
+      division: addr.division ?? "",
+      postalCode: addr.postalCode ?? "",
       isDefault: addr.isDefault,
     })
-    setEditingId(addr.id)
+    setFormError("")
+    setEditingId(addr._id)
     setShowForm(true)
   }
 
-  function handleSave() {
-    if (editingId) {
-      setAddresses((prev) =>
-        prev.map((a) =>
-          a.id === editingId
-            ? { ...a, ...form }
-            : form.isDefault
-            ? { ...a, isDefault: false }
-            : a
-        )
-      )
-    } else {
-      const newAddr: Address = {
-        id: `ADDR-${Date.now()}`,
-        ...form,
-      }
-      setAddresses((prev) =>
-        form.isDefault ? prev.map((a) => ({ ...a, isDefault: false })).concat(newAddr) : [...prev, newAddr]
-      )
+  async function handleSave() {
+    if (!userId) return
+    if (!form.addressLine1.trim() || !form.city.trim()) {
+      setFormError("Street/House and City are required.")
+      return
     }
-    setShowForm(false)
-    setEditingId(null)
+    setSaving(true)
+    setFormError("")
+    try {
+      if (editingId) {
+        const updated = await userApi.updateAddress(userId, editingId, form)
+        setAddresses((prev) => prev.map((a) => (a._id === editingId ? updated : a)))
+        if (form.isDefault) {
+          await userApi.setDefaultAddress(userId, editingId)
+          setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a._id === editingId })))
+        }
+      } else {
+        const created = await userApi.addAddress(userId, form)
+        setAddresses((prev) => (form.isDefault ? prev.map((a) => ({ ...a, isDefault: false })) : prev).concat(created))
+      }
+      setShowForm(false)
+      setEditingId(null)
+    } catch (err) {
+      setFormError((err as Error).message || "Failed to save address")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function handleDelete(id: string) {
-    setAddresses((prev) => prev.filter((a) => a.id !== id))
-    setDeleteConfirmId(null)
+  async function handleDelete(id: string) {
+    if (!userId) return
+    try {
+      await userApi.deleteAddress(userId, id)
+      setAddresses((prev) => prev.filter((a) => a._id !== id))
+    } catch (err) {
+      setError((err as Error).message || "Failed to delete address")
+    } finally {
+      setDeleteConfirmId(null)
+    }
   }
 
-  function handleSetDefault(id: string) {
-    setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })))
+  async function handleSetDefault(id: string) {
+    if (!userId) return
+    try {
+      await userApi.setDefaultAddress(userId, id)
+      setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a._id === id })))
+    } catch (err) {
+      setError((err as Error).message || "Failed to set default address")
+    }
   }
 
   return (
@@ -123,82 +137,90 @@ export default function AddressBook() {
         </button>
       </div>
 
-      {/* Address grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        {addresses.map((addr) => (
-          <div
-            key={addr.id}
-            className={`bg-white rounded-xl p-5 ${
-              addr.isDefault ? "border-2 border-[#1A2B5E]" : "border border-gray-200"
-            }`}
-          >
-            {/* Top row */}
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 bg-[#1A2B5E] text-white text-xs font-medium px-2.5 py-1 rounded-full">
-                {LABEL_ICONS[addr.label] ?? "📍"} {addr.label}
-              </span>
-              {addr.isDefault && (
-                <span className="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
-                  ✓ Default
+      {loading ? (
+        <div className="text-center py-16 text-sm text-gray-400">Loading addresses…</div>
+      ) : error ? (
+        <div className="text-center py-16 text-sm text-red-500">{error}</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          {addresses.length === 0 && !showForm && (
+            <p className="text-sm text-gray-500 md:col-span-2">No saved addresses yet.</p>
+          )}
+          {addresses.map((addr) => (
+            <div
+              key={addr._id}
+              className={`bg-white rounded-xl p-5 ${
+                addr.isDefault ? "border-2 border-[#1A2B5E]" : "border border-gray-200"
+              }`}
+            >
+              {/* Top row */}
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 bg-[#1A2B5E] text-white text-xs font-medium px-2.5 py-1 rounded-full">
+                  {LABEL_ICONS[addr.label ?? ""] ?? "📍"} {addr.label ?? "Address"}
                 </span>
-              )}
-            </div>
-
-            {/* Details */}
-            <div className="mt-3">
-              <p className="font-medium text-[#1A2B5E]">{addr.name}</p>
-              <p className="text-sm text-gray-600 mt-1">{addr.phone}</p>
-              <p className="text-sm text-gray-600 mt-1">{addr.street}</p>
-              <p className="text-sm text-gray-600">{addr.area}</p>
-              <p className="text-sm text-gray-600">{addr.city} — {addr.postalCode}</p>
-            </div>
-
-            {/* Actions */}
-            {deleteConfirmId === addr.id ? (
-              <div className="mt-4 pt-3 border-t border-gray-100">
-                <p className="text-sm text-gray-700 mb-2">Delete this address?</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleDelete(addr.id)}
-                    className="text-sm bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors"
-                  >
-                    Delete
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirmId(null)}
-                    className="text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-4">
-                <button
-                  onClick={() => openEditForm(addr)}
-                  className="text-sm text-[#1A2B5E] hover:underline"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  onClick={() => setDeleteConfirmId(addr.id)}
-                  className="text-sm text-red-500 hover:underline"
-                >
-                  🗑️ Delete
-                </button>
-                {!addr.isDefault && (
-                  <button
-                    onClick={() => handleSetDefault(addr.id)}
-                    className="text-sm text-gray-500 hover:underline"
-                  >
-                    ✓ Set as Default
-                  </button>
+                {addr.isDefault && (
+                  <span className="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
+                    ✓ Default
+                  </span>
                 )}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+
+              {/* Details */}
+              <div className="mt-3">
+                <p className="font-medium text-[#1A2B5E]">{addr.recipientName}</p>
+                <p className="text-sm text-gray-600 mt-1">{addr.phoneNumber}</p>
+                <p className="text-sm text-gray-600 mt-1">{addr.addressLine1}</p>
+                {addr.addressLine2 && <p className="text-sm text-gray-600">{addr.addressLine2}</p>}
+                <p className="text-sm text-gray-600">{addr.city} — {addr.postalCode}</p>
+              </div>
+
+              {/* Actions */}
+              {deleteConfirmId === addr._id ? (
+                <div className="mt-4 pt-3 border-t border-gray-100">
+                  <p className="text-sm text-gray-700 mb-2">Delete this address?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleDelete(addr._id)}
+                      className="text-sm bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(null)}
+                      className="text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-4">
+                  <button
+                    onClick={() => openEditForm(addr)}
+                    className="text-sm text-[#1A2B5E] hover:underline"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmId(addr._id)}
+                    className="text-sm text-red-500 hover:underline"
+                  >
+                    🗑️ Delete
+                  </button>
+                  {!addr.isDefault && (
+                    <button
+                      onClick={() => handleSetDefault(addr._id)}
+                      className="text-sm text-gray-500 hover:underline"
+                    >
+                      ✓ Set as Default
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit form */}
       {showForm && (
@@ -223,8 +245,8 @@ export default function AddressBook() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
               <input
                 type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                value={form.recipientName}
+                onChange={(e) => setForm({ ...form, recipientName: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
               />
             </div>
@@ -232,8 +254,8 @@ export default function AddressBook() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
               <input
                 type="tel"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                value={form.phoneNumber}
+                onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
               />
             </div>
@@ -241,8 +263,8 @@ export default function AddressBook() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Street / House</label>
               <input
                 type="text"
-                value={form.street}
-                onChange={(e) => setForm({ ...form, street: e.target.value })}
+                value={form.addressLine1}
+                onChange={(e) => setForm({ ...form, addressLine1: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
               />
             </div>
@@ -250,8 +272,8 @@ export default function AddressBook() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
               <input
                 type="text"
-                value={form.area}
-                onChange={(e) => setForm({ ...form, area: e.target.value })}
+                value={form.addressLine2}
+                onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A2B5E]/20 focus:border-[#1A2B5E]"
               />
             </div>
@@ -289,12 +311,14 @@ export default function AddressBook() {
               </label>
             </div>
           </div>
+          {formError && <p className="text-sm text-red-500 mt-3">{formError}</p>}
           <div className="flex gap-3 mt-5">
             <button
               onClick={handleSave}
-              className="bg-[#1A2B5E] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d1733] transition-colors"
+              disabled={saving}
+              className="bg-[#1A2B5E] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d1733] transition-colors disabled:opacity-60"
             >
-              Save Address
+              {saving ? "Saving…" : "Save Address"}
             </button>
             <button
               onClick={() => { setShowForm(false); setEditingId(null) }}
